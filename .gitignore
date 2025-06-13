@@ -1,0 +1,30 @@
+# Ignorar archivos generados por el IDE de Arduino
+*.elf
+*.hex
+*.eep
+*.bin
+*.lss
+*.sym
+*.tmp
+
+# Ignorar la carpeta de compilación
+build/
+
+# Ignorar archivos de configuración local del IDE
+*.local
+
+# Ignorar archivos de preferencias del IDE
+preferences.txt
+
+# Ignorar archivos de librerías descargadas automáticamente
+/libraries/
+
+# Ignorar archivos de proyecto de VS Code (si usas PlatformIO)
+.vscode/
+
+# Ignorar archivos del sistema operativo
+.DS_Store        # macOS
+Thumbs.db        # Windows
+
+# Ignorar archivos de PlatformIO (si no lo usas, puedes omitir esto)
+.pio/
