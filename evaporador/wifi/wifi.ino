@@ -1,11 +1,10 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WebServer.h>
-#include "mqttprueba.h"  // Incluir el archivo de cabecera MQTT
 
 // Configuración de la red WiFi
 const char* ssid = "Informatica2024";
-const char* password = "iinf2024";
+const char* password = "iinf2024";  // Sin contraseña
 
 // Credenciales del portal cautivo
 const char* portal_username = "Practica";
@@ -21,14 +20,6 @@ const int LED_PIN = 2;
 bool led_state = false;
 unsigned long last_blink = 0;
 
-// Variables para MQTT
-PubSubClient mqtt_client(secureClient);
-bool mqtt_connected = false;
-unsigned long last_mqtt_reconnect = 0;
-unsigned long last_status_send = 0;
-const unsigned long MQTT_RECONNECT_INTERVAL = 30000;  // 30 segundos
-const unsigned long STATUS_SEND_INTERVAL = 60000;     // 1 minuto
-
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -37,7 +28,7 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);  // LED apagado al inicio
   
-  Serial.println("=== ESP32 Portal Cautivo ITSZO.NET + MQTT ===");
+  Serial.println("=== ESP32 Portal Cautivo ITSZO.NET ===");
   
   // Conectar a WiFi
   connectToWiFi();
@@ -52,9 +43,6 @@ void setup() {
       Serial.println(WiFi.macAddress());
       digitalWrite(LED_PIN, HIGH);  // LED encendido fijo cuando está conectado
       testInternetConnection();
-      
-      // Inicializar MQTT después de tener internet
-      initializeMQTT();
     } else {
       // Si no se pudo autenticar, mantener parpadeo lento
       blinkLED(1000);
@@ -75,12 +63,11 @@ void loop() {
     }
   }
   
-  // Verificar conexión WiFi periódicamente
+  // Verificar conexión periódicamente
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("Conexión WiFi perdida. Reconectando...");
     wifi_connected = false;
     portal_authenticated = false;
-    mqtt_connected = false;
     digitalWrite(LED_PIN, LOW);  // Apagar LED
     connectToWiFi();
     
@@ -92,99 +79,20 @@ void loop() {
         Serial.print("Dirección MAC del ESP32: ");
         Serial.println(WiFi.macAddress());
         digitalWrite(LED_PIN, HIGH);  // LED encendido fijo cuando está conectado
-        
-        // Reinicializar MQTT después de reconectar
-        initializeMQTT();
       }
     }
   }
   
-  // Si hay conexión a internet, manejar MQTT y pruebas
+  // Si hay conexión, hacer una prueba de internet cada 30 segundos
   if (portal_authenticated) {
-    // Manejar MQTT
-    handleMQTT();
-    
-    // Hacer una prueba de internet cada 30 segundos
     static unsigned long lastCheck = 0;
     if (millis() - lastCheck > 30000) {
       testInternetConnection();
       lastCheck = millis();
     }
-    
-    // Enviar estado por MQTT cada minuto
-    if (millis() - last_status_send > STATUS_SEND_INTERVAL) {
-      sendMQTTStatus();
-      last_status_send = millis();
-    }
   }
   
   delay(50);  // Delay muy pequeño para mejor respuesta del LED
-}
-
-void initializeMQTT() {
-  Serial.println("Inicializando conexión MQTT...");
-  mqtt_setup(mqtt_client);
-  
-  // Intentar conectar inmediatamente
-  if (mqtt_reconnect_safe(mqtt_client)) {
-    mqtt_connected = true;
-    Serial.println("¡MQTT conectado exitosamente!");
-    
-    // Enviar mensaje inicial
-    sendMQTTStatus();
-  } else {
-    Serial.println("Error inicial de conexión MQTT - se reintentará automáticamente");
-    mqtt_connected = false;
-  }
-}
-
-void handleMQTT() {
-  // Verificar si necesitamos reconectar MQTT
-  if (!mqtt_client.connected()) {
-    mqtt_connected = false;
-    
-    // Intentar reconectar solo cada cierto intervalo para no saturar
-    if (millis() - last_mqtt_reconnect > MQTT_RECONNECT_INTERVAL) {
-      Serial.println("Intentando reconectar MQTT...");
-      if (mqtt_reconnect_safe(mqtt_client)) {
-        mqtt_connected = true;
-        Serial.println("MQTT reconectado exitosamente!");
-        sendMQTTStatus();
-      }
-      last_mqtt_reconnect = millis();
-    }
-  } else {
-    mqtt_connected = true;
-  }
-  
-  // Procesar mensajes MQTT
-  if (mqtt_connected) {
-    mqtt_loop(mqtt_client);
-  }
-}
-
-void sendMQTTStatus() {
-  if (mqtt_connected && mqtt_client.connected()) {
-    // Crear mensaje de estado
-    String status_message = "{"
-      "\"device\":\"ESP32A\","
-      "\"wifi_connected\":" + String(wifi_connected ? "true" : "false") + ","
-      "\"portal_authenticated\":" + String(portal_authenticated ? "true" : "false") + ","
-      "\"mqtt_connected\":" + String(mqtt_connected ? "true" : "false") + ","
-      "\"ip\":\"" + WiFi.localIP().toString() + "\","
-      "\"mac\":\"" + WiFi.macAddress() + "\","
-      "\"uptime\":" + String(millis()) + ","
-      "\"free_heap\":" + String(ESP.getFreeHeap()) + 
-    "}";
-    
-    bool published = mqtt_client.publish("esp32/status", status_message.c_str());
-    
-    if (published) {
-      Serial.println("Estado enviado por MQTT: " + status_message);
-    } else {
-      Serial.println("Error al enviar estado por MQTT");
-    }
-  }
 }
 
 void connectToWiFi() {
@@ -471,14 +379,12 @@ void testInternetConnection() {
     } else {
       Serial.println("⚠ Respuesta inesperada de Google");
       portal_authenticated = false;
-      mqtt_connected = false;
       digitalWrite(LED_PIN, LOW);
     }
   } else {
     Serial.print("✗ Error de conexión: ");
     Serial.println(httpCode);
     portal_authenticated = false;
-    mqtt_connected = false;
     digitalWrite(LED_PIN, LOW);
   }
   
