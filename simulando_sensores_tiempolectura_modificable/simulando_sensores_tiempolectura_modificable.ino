@@ -95,10 +95,10 @@ void leerTemperaturaHumedad(unsigned long interval) {
   // Simulación
   float temp = random(200, 350) / 10.0;
   float hum = random(300, 700) / 10.0;
-  // float temp = leerSensorFisico();
-  // float hum = leerSensorFisico();
 
   String fechaHora = getDateTimeISO();
+  String fecha = fechaHora.substring(0,10);
+  String hora  = fechaHora.substring(11,19); // CORRECTO
 
   // Publica MQTT
   publishMessage(topic_dht11_temp, String(temp,1), true);
@@ -109,12 +109,12 @@ void leerTemperaturaHumedad(unsigned long interval) {
   doc["sensor"] = "dht11";
   doc["temperatura"] = temp;
   doc["humedad"] = hum;
-  doc["fecha_hora"] = fechaHora;
+  doc["fecha"] = fecha;
+  doc["hora"] = hora;
 
   String output;
   serializeJson(doc, output);
   Serial.println(output);
-
   // Simulación de guardado en SD
   // File file = SD.open("/valores.json", FILE_APPEND); if(file){file.println(output); file.close();}
 }
@@ -128,6 +128,8 @@ void leerGiroscopio(unsigned long interval) {
   float gyro_lon = random(-18000, 18000) / 100.0;
 
   String fechaHora = getDateTimeISO();
+  String fecha = fechaHora.substring(0,10);
+  String hora  = fechaHora.substring(11,19);
 
   publishMessage(topic_gyro_lat, String(gyro_lat,2), true);
   publishMessage(topic_gyro_lon, String(gyro_lon,2), true);
@@ -136,7 +138,9 @@ void leerGiroscopio(unsigned long interval) {
   doc["sensor"] = "giroscopio";
   doc["latitud"] = gyro_lat;
   doc["longitud"] = gyro_lon;
-  doc["fecha_hora"] = fechaHora;
+  doc["fecha"] = fecha;
+  doc["hora"] = hora;
+
   String output;
   serializeJson(doc, output);
   Serial.println(output);
@@ -151,12 +155,17 @@ void leerLuminosidad(unsigned long interval) {
   int lux = random(0, 10000);
 
   String fechaHora = getDateTimeISO();
+  String fecha = fechaHora.substring(0,10);
+  String hora  = fechaHora.substring(11,19);
+
   publishMessage(topic_lux, String(lux), true);
 
   StaticJsonDocument<128> doc;
   doc["sensor"] = "luminosidad";
   doc["lux"] = lux;
-  doc["fecha_hora"] = fechaHora;
+  doc["fecha"] = fecha;
+  doc["hora"] = hora;
+
   String output;
   serializeJson(doc, output);
   Serial.println(output);
@@ -171,12 +180,17 @@ void leerBascula(unsigned long interval) {
   int bascula = random(50000, 500000);
 
   String fechaHora = getDateTimeISO();
+  String fecha = fechaHora.substring(0,10);
+  String hora  = fechaHora.substring(11,19);
+
   publishMessage(topic_bascula, String(bascula), true);
 
   StaticJsonDocument<128> doc;
   doc["sensor"] = "bascula";
   doc["peso_mg"] = bascula;
-  doc["fecha_hora"] = fechaHora;
+  doc["fecha"] = fecha;
+  doc["hora"] = hora;
+
   String output;
   serializeJson(doc, output);
   Serial.println(output);
@@ -188,15 +202,19 @@ void motorX(unsigned long interval) {
   if (millis() - last < interval) return;
   last = millis();
 
-  // Simulación: status y grados ya están actualizados por callback
   String fechaHora = getDateTimeISO();
+  String fecha = fechaHora.substring(0,10);
+  String hora  = fechaHora.substring(11,19);
+
   publishMessage(topic_motorX, motorX_status + ",GRADOS:" + String(motorX_grados), true);
 
   StaticJsonDocument<128> doc;
   doc["actuador"] = "motorX";
   doc["estatus"] = motorX_status;
   doc["grados"] = motorX_grados;
-  doc["fecha_hora"] = fechaHora;
+  doc["fecha"] = fecha;
+  doc["hora"] = hora;
+
   String output;
   serializeJson(doc, output);
   Serial.println(output);
@@ -209,13 +227,18 @@ void motorY(unsigned long interval) {
   last = millis();
 
   String fechaHora = getDateTimeISO();
+  String fecha = fechaHora.substring(0,10);
+  String hora  = fechaHora.substring(11,19);
+
   publishMessage(topic_motorY, motorY_status + ",GRADOS:" + String(motorY_grados), true);
 
   StaticJsonDocument<128> doc;
   doc["actuador"] = "motorY";
   doc["estatus"] = motorY_status;
   doc["grados"] = motorY_grados;
-  doc["fecha_hora"] = fechaHora;
+  doc["fecha"] = fecha;
+  doc["hora"] = hora;
+
   String output;
   serializeJson(doc, output);
   Serial.println(output);
@@ -231,6 +254,9 @@ void leerGPS(unsigned long interval) {
   last_gps_lon += random(-10, 10) / 10000.0;
 
   String fechaHora = getDateTimeISO();
+  String fecha = fechaHora.substring(0,10);
+  String hora  = fechaHora.substring(11,19);
+
   publishMessage(topic_gps_lat, String(last_gps_lat,6), true);
   publishMessage(topic_gps_lon, String(last_gps_lon,6), true);
 
@@ -238,7 +264,9 @@ void leerGPS(unsigned long interval) {
   doc["sensor"] = "gps";
   doc["latitud"] = last_gps_lat;
   doc["longitud"] = last_gps_lon;
-  doc["fecha_hora"] = fechaHora;
+  doc["fecha"] = fecha;
+  doc["hora"] = hora;
+
   String output;
   serializeJson(doc, output);
   Serial.println(output);
