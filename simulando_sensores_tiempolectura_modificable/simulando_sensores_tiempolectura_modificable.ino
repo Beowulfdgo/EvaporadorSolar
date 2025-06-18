@@ -5,7 +5,7 @@
 #include <ArduinoJson.h>
 #include <time.h>
 
-// ==== WiFi y MQTT settings (igual que antes)
+// ==== WiFi y MQTT settings
 const char* ssid = "Informatica2024";
 const char* password = "iinf2024";
 const char* mqtt_server = "b6d522ef66224d36a55e598722e7338d.s1.eu.hivemq.cloud";
@@ -98,13 +98,13 @@ void leerTemperaturaHumedad(unsigned long interval) {
 
   String fechaHora = getDateTimeISO();
   String fecha = fechaHora.substring(0,10);
-  String hora  = fechaHora.substring(11,19); // CORRECTO
+  String hora  = fechaHora.substring(11,19);
 
-  // Publica MQTT
+  // Publica MQTT valor numérico (opcional)
   publishMessage(topic_dht11_temp, String(temp,1), true);
   publishMessage(topic_dht11_hum, String(hum,1), true);
 
-  // Arma JSON
+  // Arma y publica JSON
   StaticJsonDocument<256> doc;
   doc["sensor"] = "dht11";
   doc["temperatura"] = temp;
@@ -114,9 +114,8 @@ void leerTemperaturaHumedad(unsigned long interval) {
 
   String output;
   serializeJson(doc, output);
+  publishMessage("evaporador/dht11/json", output, true);
   Serial.println(output);
-  // Simulación de guardado en SD
-  // File file = SD.open("/valores.json", FILE_APPEND); if(file){file.println(output); file.close();}
 }
 
 void leerGiroscopio(unsigned long interval) {
@@ -143,8 +142,8 @@ void leerGiroscopio(unsigned long interval) {
 
   String output;
   serializeJson(doc, output);
+  publishMessage("evaporador/giroscopio/json", output, true);
   Serial.println(output);
-  // File file = SD.open("/valores.json", FILE_APPEND); if(file){file.println(output); file.close();}
 }
 
 void leerLuminosidad(unsigned long interval) {
@@ -168,8 +167,8 @@ void leerLuminosidad(unsigned long interval) {
 
   String output;
   serializeJson(doc, output);
+  publishMessage("evaporador/luminosidad/json", output, true);
   Serial.println(output);
-  // File file = SD.open("/valores.json", FILE_APPEND); if(file){file.println(output); file.close();}
 }
 
 void leerBascula(unsigned long interval) {
@@ -193,8 +192,8 @@ void leerBascula(unsigned long interval) {
 
   String output;
   serializeJson(doc, output);
+  publishMessage("evaporador/bascula/json", output, true);
   Serial.println(output);
-  // File file = SD.open("/valores.json", FILE_APPEND); if(file){file.println(output); file.close();}
 }
 
 void motorX(unsigned long interval) {
@@ -206,8 +205,6 @@ void motorX(unsigned long interval) {
   String fecha = fechaHora.substring(0,10);
   String hora  = fechaHora.substring(11,19);
 
-  publishMessage(topic_motorX, motorX_status + ",GRADOS:" + String(motorX_grados), true);
-
   StaticJsonDocument<128> doc;
   doc["actuador"] = "motorX";
   doc["estatus"] = motorX_status;
@@ -217,8 +214,8 @@ void motorX(unsigned long interval) {
 
   String output;
   serializeJson(doc, output);
+  publishMessage("evaporador/motorX/json", output, true);
   Serial.println(output);
-  // File file = SD.open("/valores.json", FILE_APPEND); if(file){file.println(output); file.close();}
 }
 
 void motorY(unsigned long interval) {
@@ -230,8 +227,6 @@ void motorY(unsigned long interval) {
   String fecha = fechaHora.substring(0,10);
   String hora  = fechaHora.substring(11,19);
 
-  publishMessage(topic_motorY, motorY_status + ",GRADOS:" + String(motorY_grados), true);
-
   StaticJsonDocument<128> doc;
   doc["actuador"] = "motorY";
   doc["estatus"] = motorY_status;
@@ -241,8 +236,8 @@ void motorY(unsigned long interval) {
 
   String output;
   serializeJson(doc, output);
+  publishMessage("evaporador/motorY/json", output, true);
   Serial.println(output);
-  // File file = SD.open("/valores.json", FILE_APPEND); if(file){file.println(output); file.close();}
 }
 
 void leerGPS(unsigned long interval) {
@@ -269,8 +264,8 @@ void leerGPS(unsigned long interval) {
 
   String output;
   serializeJson(doc, output);
+  publishMessage("evaporador/gps/json", output, true);
   Serial.println(output);
-  // File file = SD.open("/valores.json", FILE_APPEND); if(file){file.println(output); file.close();}
 }
 
 // ========== MQTT Y WIFI ==========
@@ -328,7 +323,7 @@ void setup() {
 
   // Configura hora vía NTP
   configTime(-6 * 3600, 0, "pool.ntp.org", "time.nist.gov"); // GMT-6
-  while(time(nullptr) < 100000){delay(100);Serial.print("*");} // Espera a tener hora válida
+  while(time(nullptr) < 100000){delay(100);Serial.print("*");}
 
   espClient.setCACert(root_ca);
   client.setServer(mqtt_server, mqtt_port);
