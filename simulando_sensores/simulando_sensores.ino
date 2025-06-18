@@ -2,16 +2,20 @@
 #include <PubSubClient.h>
 #include <WiFiClientSecure.h>
 #include <SPI.h>
+#include <ArduinoJson.h> // Instala esta librería
 
-//==== WiFi settings
+// ==== WiFi settings
 const char* ssid = "Informatica2024";
 const char* password = "iinf2024";
 
-//==== MQTT Broker settings
+// ==== MQTT Broker settings
 const char* mqtt_server = "b6d522ef66224d36a55e598722e7338d.s1.eu.hivemq.cloud";
 const char* mqtt_username = "evaporador";
 const char* mqtt_password = "Evaporador2025";
 const int mqtt_port = 8883;
+
+// ==== LED SETTINGS
+#define LED_WIFI 2  // Cambia el pin si tu LED está en otro
 
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
@@ -60,15 +64,42 @@ const char* topic_motorX = "evaporador/motorX/estatus";
 const char* topic_motorY = "evaporador/motorY/estatus";
 const char* topic_gps_lat = "evaporador/gps/latitud";
 const char* topic_gps_lon = "evaporador/gps/longitud";
+const char* topic_bascula = "evaporador/bascula/mg";
+const char* topic_motorX_cmd = "evaporador/motorX/cmd";
+const char* topic_motorY_cmd = "evaporador/motorY/cmd";
 
-// Variables para simulación
-float last_gps_lat = 19.4326; // CDMX base
+float last_gps_lat = 19.4326;
 float last_gps_lon = -99.1332;
 
+// Estado motores y grados
+String motorX_status = "OFF";
+String motorY_status = "OFF";
+int motorX_grados = 0;
+int motorY_grados = 0;
+
+// ===================== MQTT CALLBACK ==========================
 void callback(char* topic, byte* payload, unsigned int length) {
-  // Aquí puedes procesar mensajes entrantes si lo deseas
+  String incoming = "";
+  for (int i = 0; i < length; i++) incoming += (char)payload[i];
+
+  // Control de motores y grados por MQTT
+  if (String(topic) == topic_motorX_cmd) {
+    if (incoming == "ON" || incoming == "OFF") motorX_status = incoming;
+    if (incoming.startsWith("GRADOS:")) {
+      motorX_grados = incoming.substring(7).toInt();
+      Serial.printf("MotorX a %d grados\n", motorX_grados);
+    }
+  }
+  if (String(topic) == topic_motorY_cmd) {
+    if (incoming == "ON" || incoming == "OFF") motorY_status = incoming;
+    if (incoming.startsWith("GRADOS:")) {
+      motorY_grados = incoming.substring(7).toInt();
+      Serial.printf("MotorY a %d grados\n", motorY_grados);
+    }
+  }
 }
 
+// ===================== WIFI Y MQTT ============================
 void reconnect() {
   while (!client.connected()) {
     Serial.print("Intentando conectar MQTT...");
@@ -76,7 +107,8 @@ void reconnect() {
     clientId += String(random(0xffff), HEX);
     if (client.connect(clientId.c_str(), mqtt_username, mqtt_password)) {
       Serial.println("Conectado a MQTT");
-      // Puedes suscribirte a tópicos aquí si lo necesitas
+      client.subscribe(topic_motorX_cmd);
+      client.subscribe(topic_motorY_cmd);
     } else {
       Serial.print("Fallo, rc=");
       Serial.print(client.state());
@@ -86,17 +118,26 @@ void reconnect() {
   }
 }
 
+// ===================== SETUP ============================
 void setup() {
   Serial.begin(115200);
+  pinMode(LED_WIFI, OUTPUT);
+
   Serial.print("\nConectando a ");
   Serial.println(ssid);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   client.setCallback(callback);
+
+  // LED parpadea mientras conecta
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    digitalWrite(LED_WIFI, !digitalRead(LED_WIFI));
+    delay(300);
     Serial.print(".");
   }
+
+  // LED fijo cuando conecta
+  digitalWrite(LED_WIFI, HIGH);
   Serial.println("\nWiFi conectado\nIP address: ");
   Serial.println(WiFi.localIP());
   espClient.setCACert(root_ca);
@@ -104,42 +145,67 @@ void setup() {
   delay(1000);
 }
 
+// ===================== LOOP PRINCIPAL ============================
 void loop() {
   if (!client.connected()) reconnect();
   client.loop();
 
   // ==== SIMULACION DE SENSORES ====
-  // DHT11 (Temperatura y Humedad)
-  float temp = random(200, 350) / 10.0;  // 20.0 a 35.0 °C
-  float hum = random(300, 700) / 10.0;   // 30.0 a 70.0 %
+  float temp = random(200, 350) / 10.0;
+  float hum = random(300, 700) / 10.0;
+  float gyro_lat = random(-9000, 9000) / 100.0;
+  float gyro_lon = random(-18000, 18000) / 100.0;
+  int lux = random(0, 10000);
+  int bascula = random(50000, 500000); // 50,000 a 500,000 mg
+  last_gps_lat += random(-10, 10) / 10000.0;
+  last_gps_lon += random(-10, 10) / 10000.0;
+
+  // ==== JSON PARA MOSTRAR Y (SIMULAR) GUARDAR EN SD ====
+  StaticJsonDocument<512> doc;
+  doc["dht11"]["temp"] = temp;
+  doc["dht11"]["hum"] = hum;
+  doc["giroscopio"]["latitud"] = gyro_lat;
+  doc["giroscopio"]["longitud"] = gyro_lon;
+  doc["luminosidad"] = lux;
+  doc["bascula_mg"] = bascula;
+  doc["motorX"]["estatus"] = motorX_status;
+  doc["motorX"]["grados"] = motorX_grados;
+  doc["motorY"]["estatus"] = motorY_status;
+  doc["motorY"]["grados"] = motorY_grados;
+  doc["gps"]["latitud"] = last_gps_lat;
+  doc["gps"]["longitud"] = last_gps_lon;
+
+  String jsonOutput;
+  serializeJson(doc, jsonOutput);
+
+  // ==== PUBLICAR MQTT ====
   publishMessage(topic_dht11_temp, String(temp, 1), true);
   publishMessage(topic_dht11_hum, String(hum, 1), true);
-
-  // Giroscopios (latitud y longitud)
-  float gyro_lat = random(-9000, 9000) / 100.0; // -90.0 a +90.0
-  float gyro_lon = random(-18000, 18000) / 100.0; // -180.0 a +180.0
   publishMessage(topic_gyro_lat, String(gyro_lat, 2), true);
   publishMessage(topic_gyro_lon, String(gyro_lon, 2), true);
-
-  // Sensor de Iluminosidad (lux)
-  int lux = random(0, 10000); // 0 a 10,000 lux
   publishMessage(topic_lux, String(lux), true);
-
-  // Motores X y Y (estatus ON/OFF)
-  String motorX_status = random(0, 2) == 0 ? "OFF" : "ON";
-  String motorY_status = random(0, 2) == 0 ? "OFF" : "ON";
-  publishMessage(topic_motorX, motorX_status, true);
-  publishMessage(topic_motorY, motorY_status, true);
-
-  // GPS (latitud y longitud) - Simula movimiento
-  last_gps_lat += random(-10, 10) / 10000.0; // Cambios pequeños
-  last_gps_lon += random(-10, 10) / 10000.0;
+  publishMessage(topic_bascula, String(bascula), true);
+  publishMessage(topic_motorX, String(motorX_status) + ",GRADOS:" + String(motorX_grados), true);
+  publishMessage(topic_motorY, String(motorY_status) + ",GRADOS:" + String(motorY_grados), true);
   publishMessage(topic_gps_lat, String(last_gps_lat, 6), true);
   publishMessage(topic_gps_lon, String(last_gps_lon, 6), true);
 
-  delay(5000); // Publica cada 5 segundos
+  // ==== MOSTRAR Y (SIMULAR) GUARDAR EN SD ====
+  Serial.println("\nJSON publicado:");
+  Serial.println(jsonOutput);
+
+  // ----------- Simular guardado en SD -----------
+  // File file = SD.open("/valores.json", FILE_WRITE);
+  // if(file) {
+  //   file.println(jsonOutput);
+  //   file.close();
+  // }
+  // ----------------------------------------------
+
+  delay(5000);
 }
 
+// ===================== MQTT PUBLISH ============================
 void publishMessage(const char* topic, String payload, boolean retained) {
   if (client.publish(topic, payload.c_str(), retained))
     Serial.println("Mensaje publicado [" + String(topic) + "]: " + payload);
