@@ -1,0 +1,886 @@
+[
+    {
+        "id": "987d29ebab617b39",
+        "type": "tab",
+        "label": "Dashboard",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "tab-experimentos",
+        "type": "tab",
+        "label": "Experimentos",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "a32c3e3f3e9644bc",
+        "type": "tab",
+        "label": "Configuración Inicial",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "hivemq_cloud",
+        "type": "mqtt-broker",
+        "name": "HiveMQ Cloud",
+        "broker": "b6d522ef66224d36a55e598722e7338d.s1.eu.hivemq.cloud",
+        "port": "8883",
+        "tls": true,
+        "usetls": true,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "userProps": ""
+    },
+    {
+        "id": "tab_principal",
+        "type": "ui_tab",
+        "name": "Evaporador Solar",
+        "icon": "dashboard",
+        "order": 1,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "sensores_group",
+        "type": "ui_group",
+        "name": "Sensores",
+        "tab": "tab_principal",
+        "order": 1,
+        "disp": true,
+        "width": "8",
+        "collapse": false
+    },
+    {
+        "id": "actuadores_group",
+        "type": "ui_group",
+        "name": "Actuadores",
+        "tab": "tab_principal",
+        "order": 2,
+        "disp": true,
+        "width": "8",
+        "collapse": false
+    },
+    {
+        "id": "info_group",
+        "type": "ui_group",
+        "name": "Información",
+        "tab": "tab_principal",
+        "order": 3,
+        "disp": true,
+        "width": "8",
+        "collapse": false
+    },
+    {
+        "id": "6b04a5e1bc0401e4",
+        "type": "ui_base",
+        "theme": {
+            "name": "theme-light",
+            "lightTheme": {
+                "default": "#0094CE",
+                "baseColor": "#0094CE",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "darkTheme": {
+                "default": "#097479",
+                "baseColor": "#097479",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "customTheme": {
+                "name": "Untitled Theme 1",
+                "default": "#4B7930",
+                "baseColor": "#4B7930",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "themeState": {
+                "base-color": {
+                    "default": "#0094CE",
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-titlebar-backgroundColor": {
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-backgroundColor": {
+                    "value": "#fafafa",
+                    "edited": false
+                },
+                "page-sidebar-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-textColor": {
+                    "value": "#1bbfff",
+                    "edited": false
+                },
+                "group-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "widget-textColor": {
+                    "value": "#111111",
+                    "edited": false
+                },
+                "widget-backgroundColor": {
+                    "value": "#0094ce",
+                    "edited": false
+                },
+                "widget-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "base-font": {
+                    "value": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+                }
+            },
+            "angularTheme": {
+                "primary": "indigo",
+                "accents": "blue",
+                "warn": "red",
+                "background": "grey",
+                "palette": "light"
+            }
+        },
+        "site": {
+            "name": "Node-RED Dashboard",
+            "hideToolbar": "false",
+            "allowSwipe": "false",
+            "lockMenu": "false",
+            "allowTempTheme": "true",
+            "dateFormat": "DD/MM/YYYY",
+            "sizes": {
+                "sx": 48,
+                "sy": 48,
+                "gx": 6,
+                "gy": 6,
+                "cx": 6,
+                "cy": 6,
+                "px": 0,
+                "py": 0
+            }
+        }
+    },
+    {
+        "id": "ui_group_experimento",
+        "type": "ui_group",
+        "name": "Nuevo Experimento",
+        "tab": "tab_principal",
+        "order": 1,
+        "disp": true,
+        "width": "8",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "ui_group_mqtt_config",
+        "type": "ui_group",
+        "name": "Configuración de MQTT",
+        "tab": "tab_principal",
+        "order": 2,
+        "disp": true,
+        "width": "8",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "850d7a4ae07d52f3",
+        "type": "mqtt in",
+        "z": "987d29ebab617b39",
+        "name": "MQTT Evaporador",
+        "topic": "evaporador/#",
+        "qos": "1",
+        "datatype": "auto",
+        "broker": "hivemq_cloud",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 250,
+        "y": 460,
+        "wires": [
+            [
+                "8742544fe6d168dc"
+            ]
+        ]
+    },
+    {
+        "id": "8742544fe6d168dc",
+        "type": "json",
+        "z": "987d29ebab617b39",
+        "name": "JSON a objeto",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 450,
+        "y": 460,
+        "wires": [
+            [
+                "85c839e02601be4c",
+                "8b03db03e053438b",
+                "52c0371728b1bfd5",
+                "9908d9fca3cd3a7c",
+                "77fa7c80b843f443",
+                "0e4399202c8b39e7",
+                "7ce765069f2e5af1",
+                "b4fa2a556e2f23c8",
+                "1117fe90faa879b4",
+                "a54c332beffd9a3c",
+                "dab8039f294528f7",
+                "4be36f20ea78b413"
+            ]
+        ]
+    },
+    {
+        "id": "85c839e02601be4c",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae Temperatura",
+        "func": "if (msg.payload.sensor === \"dht11\" && msg.payload.temperatura !== undefined) {\n    msg.payload = msg.payload.temperatura;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 690,
+        "y": 420,
+        "wires": [
+            [
+                "64d5d4ee7191812d"
+            ]
+        ]
+    },
+    {
+        "id": "8b03db03e053438b",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae Humedad",
+        "func": "if (msg.payload.sensor === \"dht11\" && msg.payload.humedad !== undefined) {\n    msg.payload = msg.payload.humedad;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 690,
+        "y": 460,
+        "wires": [
+            [
+                "0808221ee84ae09b"
+            ]
+        ]
+    },
+    {
+        "id": "52c0371728b1bfd5",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae Luminosidad",
+        "func": "if (msg.payload.sensor === \"luminosidad\" && msg.payload.lux !== undefined) {\n    msg.payload = msg.payload.lux;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 710,
+        "y": 500,
+        "wires": [
+            [
+                "a4b7f7c2b02860bc"
+            ]
+        ]
+    },
+    {
+        "id": "9908d9fca3cd3a7c",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae Bascula",
+        "func": "if (msg.payload.sensor === \"bascula\" && msg.payload.peso_mg !== undefined) {\n    msg.payload = msg.payload.peso_mg;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 700,
+        "y": 540,
+        "wires": [
+            [
+                "e23b86790dde5f46"
+            ]
+        ]
+    },
+    {
+        "id": "77fa7c80b843f443",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae Giro Latitud",
+        "func": "if (msg.payload.sensor === \"giroscopio\" && msg.payload.latitud !== undefined) {\n    msg.payload = msg.payload.latitud;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 720,
+        "y": 580,
+        "wires": [
+            [
+                "3bc1a20b2654b826"
+            ]
+        ]
+    },
+    {
+        "id": "0e4399202c8b39e7",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae Giro Longitud",
+        "func": "if (msg.payload.sensor === \"giroscopio\" && msg.payload.longitud !== undefined) {\n    msg.payload = msg.payload.longitud;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 730,
+        "y": 620,
+        "wires": [
+            [
+                "1d1fab2e3ec9d51c"
+            ]
+        ]
+    },
+    {
+        "id": "7ce765069f2e5af1",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae GPS Latitud",
+        "func": "if (msg.payload.sensor === \"gps\" && msg.payload.latitud !== undefined) {\n    msg.payload = msg.payload.latitud;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 720,
+        "y": 660,
+        "wires": [
+            [
+                "4dd1dc3033e1e443"
+            ]
+        ]
+    },
+    {
+        "id": "b4fa2a556e2f23c8",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae GPS Longitud",
+        "func": "if (msg.payload.sensor === \"gps\" && msg.payload.longitud !== undefined) {\n    msg.payload = msg.payload.longitud;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 720,
+        "y": 700,
+        "wires": [
+            [
+                "6260628cdbd30576"
+            ]
+        ]
+    },
+    {
+        "id": "1117fe90faa879b4",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae Motor X",
+        "func": "if (msg.payload.actuador === \"motorX\" && msg.payload.estatus !== undefined) {\n    msg.payload = \"Estado: \" + msg.payload.estatus + \" - Grados: \" + msg.payload.grados;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 710,
+        "y": 740,
+        "wires": [
+            [
+                "6404f58ba37fa5fe"
+            ]
+        ]
+    },
+    {
+        "id": "a54c332beffd9a3c",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae Motor Y",
+        "func": "if (msg.payload.actuador === \"motorY\" && msg.payload.estatus !== undefined) {\n    msg.payload = \"Estado: \" + msg.payload.estatus + \" - Grados: \" + msg.payload.grados;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 710,
+        "y": 780,
+        "wires": [
+            [
+                "25f7aa3747b26233"
+            ]
+        ]
+    },
+    {
+        "id": "dab8039f294528f7",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae Fecha",
+        "func": "if (msg.payload.fecha !== undefined) {\n    msg.payload = msg.payload.fecha;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 700,
+        "y": 820,
+        "wires": [
+            [
+                "3fefee5e6048dce6"
+            ]
+        ]
+    },
+    {
+        "id": "4be36f20ea78b413",
+        "type": "function",
+        "z": "987d29ebab617b39",
+        "name": "Extrae Hora",
+        "func": "if (msg.payload.hora !== undefined) {\n    msg.payload = msg.payload.hora;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 700,
+        "y": 860,
+        "wires": [
+            [
+                "af401895c44e3069"
+            ]
+        ]
+    },
+    {
+        "id": "64d5d4ee7191812d",
+        "type": "ui_gauge",
+        "z": "987d29ebab617b39",
+        "name": "Temperatura",
+        "group": "sensores_group",
+        "order": 1,
+        "width": "4",
+        "height": "2",
+        "gtype": "gage",
+        "title": "Temperatura (°C)",
+        "label": "°C",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 60,
+        "x": 960,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "0808221ee84ae09b",
+        "type": "ui_gauge",
+        "z": "987d29ebab617b39",
+        "name": "Humedad",
+        "group": "sensores_group",
+        "order": 2,
+        "width": "4",
+        "height": "2",
+        "gtype": "gage",
+        "title": "Humedad (%)",
+        "label": "%",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 100,
+        "x": 960,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "a4b7f7c2b02860bc",
+        "type": "ui_gauge",
+        "z": "987d29ebab617b39",
+        "name": "Luminosidad",
+        "group": "sensores_group",
+        "order": 3,
+        "width": "4",
+        "height": "2",
+        "gtype": "gage",
+        "title": "Luminosidad (lux)",
+        "label": "lux",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 10000,
+        "x": 980,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "e23b86790dde5f46",
+        "type": "ui_gauge",
+        "z": "987d29ebab617b39",
+        "name": "Báscula",
+        "group": "sensores_group",
+        "order": 4,
+        "width": "4",
+        "height": "2",
+        "gtype": "gage",
+        "title": "Peso (mg)",
+        "label": "mg",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 500000,
+        "x": 980,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "3bc1a20b2654b826",
+        "type": "ui_text",
+        "z": "987d29ebab617b39",
+        "group": "sensores_group",
+        "order": 5,
+        "width": "6",
+        "height": "1",
+        "name": "Giro Latitud",
+        "label": "Giroscopio Latitud",
+        "format": "{{value}}",
+        "x": 980,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "1d1fab2e3ec9d51c",
+        "type": "ui_text",
+        "z": "987d29ebab617b39",
+        "group": "sensores_group",
+        "order": 6,
+        "width": "6",
+        "height": "1",
+        "name": "Giro Longitud",
+        "label": "Giroscopio Longitud",
+        "format": "{{value}}",
+        "x": 980,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "4dd1dc3033e1e443",
+        "type": "ui_text",
+        "z": "987d29ebab617b39",
+        "group": "sensores_group",
+        "order": 7,
+        "width": "6",
+        "height": "1",
+        "name": "GPS Latitud",
+        "label": "GPS Latitud",
+        "format": "{{value}}",
+        "x": 980,
+        "y": 660,
+        "wires": []
+    },
+    {
+        "id": "6260628cdbd30576",
+        "type": "ui_text",
+        "z": "987d29ebab617b39",
+        "group": "sensores_group",
+        "order": 8,
+        "width": "6",
+        "height": "1",
+        "name": "GPS Longitud",
+        "label": "GPS Longitud",
+        "format": "{{value}}",
+        "x": 980,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "6404f58ba37fa5fe",
+        "type": "ui_text",
+        "z": "987d29ebab617b39",
+        "group": "actuadores_group",
+        "order": 1,
+        "width": "6",
+        "height": "1",
+        "name": "Motor X",
+        "label": "Motor X",
+        "format": "{{value}}",
+        "x": 980,
+        "y": 740,
+        "wires": []
+    },
+    {
+        "id": "25f7aa3747b26233",
+        "type": "ui_text",
+        "z": "987d29ebab617b39",
+        "group": "actuadores_group",
+        "order": 2,
+        "width": "6",
+        "height": "1",
+        "name": "Motor Y",
+        "label": "Motor Y",
+        "format": "{{value}}",
+        "x": 980,
+        "y": 780,
+        "wires": []
+    },
+    {
+        "id": "3fefee5e6048dce6",
+        "type": "ui_text",
+        "z": "987d29ebab617b39",
+        "group": "info_group",
+        "order": 1,
+        "width": "6",
+        "height": "1",
+        "name": "Fecha",
+        "label": "Fecha",
+        "format": "{{value}}",
+        "x": 980,
+        "y": 820,
+        "wires": []
+    },
+    {
+        "id": "af401895c44e3069",
+        "type": "ui_text",
+        "z": "987d29ebab617b39",
+        "group": "info_group",
+        "order": 2,
+        "width": "6",
+        "height": "1",
+        "name": "Hora",
+        "label": "Hora",
+        "format": "{{value}}",
+        "x": 980,
+        "y": 860,
+        "wires": []
+    },
+    {
+        "id": "ui_form_experimento",
+        "type": "ui_form",
+        "z": "tab-experimentos",
+        "name": "Formulario Experimento",
+        "label": "Datos del Experimento",
+        "group": "ui_group_experimento",
+        "order": 1,
+        "width": "8",
+        "height": "1",
+        "options": [
+            {
+                "label": "Nombre del experimento",
+                "value": "nombre",
+                "type": "text",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "Fecha/hora de inicio",
+                "value": "inicio",
+                "type": "text",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "Duración (minutos)",
+                "value": "duracion",
+                "type": "number",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "Intervalo de sensado (s)",
+                "value": "intervalo",
+                "type": "number",
+                "required": true,
+                "rows": null
+            }
+        ],
+        "formValue": {
+            "nombre": "",
+            "inicio": "",
+            "duracion": "",
+            "intervalo": ""
+        },
+        "payload": "",
+        "submit": "Guardar",
+        "cancel": "Cancelar",
+        "topic": "",
+        "topicType": "str",
+        "splitLayout": false,
+        "className": "",
+        "x": 200,
+        "y": 120,
+        "wires": [
+            [
+                "function_experimento"
+            ]
+        ]
+    },
+    {
+        "id": "function_experimento",
+        "type": "function",
+        "z": "tab-experimentos",
+        "name": "Procesar Experimento",
+        "func": "msg.payload = {\n    nombre: msg.payload.nombre,\n    inicio: msg.payload.inicio,\n    duracion: msg.payload.duracion,\n    intervalo: msg.payload.intervalo\n}\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 120,
+        "wires": [
+            [
+                "debug_experimento"
+            ]
+        ]
+    },
+    {
+        "id": "debug_experimento",
+        "type": "debug",
+        "z": "tab-experimentos",
+        "name": "Ver datos de experimento",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "ui_button_cargar",
+        "type": "ui_button",
+        "z": "tab-experimentos",
+        "name": "",
+        "group": "ui_group_experimento",
+        "order": 2,
+        "width": "8",
+        "height": "1",
+        "passthru": false,
+        "label": "Cargar experimento",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "icon": "",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "x": 200,
+        "y": 200,
+        "wires": [
+            [
+                "debug_cargar"
+            ]
+        ]
+    },
+    {
+        "id": "debug_cargar",
+        "type": "debug",
+        "z": "tab-experimentos",
+        "name": "Cargar experimento pulsado",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 480,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "115cd8e549c3f323",
+        "type": "ui_form",
+        "z": "a32c3e3f3e9644bc",
+        "name": "Formulario Configuración MQTT",
+        "label": "Configurar Intervalos de Sensores (ms)",
+        "group": "ui_group_mqtt_config",
+        "order": 1,
+        "width": "8",
+        "height": "1",
+        "options": [
+            {
+                "label": "Intervalo DHT (ms)",
+                "value": "intervalDht",
+                "type": "number",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "Intervalo Giroscopio (ms)",
+                "value": "intervalGyro",
+                "type": "number",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "Intervalo Lux (ms)",
+                "value": "intervalLux",
+                "type": "number",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "Intervalo Báscula (ms)",
+                "value": "intervalBascula",
+                "type": "number",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "Intervalo GPS (ms)",
+                "value": "intervalGps",
+                "type": "number",
+                "required": true,
+                "rows": null
+            }
+        ],
+        "formValue": {
+            "intervalDht": "",
+            "intervalGyro": "",
+            "intervalLux": "",
+            "intervalBascula": "",
+            "intervalGps": ""
+        },
+        "payload": "",
+        "submit": "Guardar configuración",
+        "cancel": "Cancelar",
+        "topic": "",
+        "topicType": "str",
+        "splitLayout": false,
+        "className": "",
+        "x": 200,
+        "y": 280,
+        "wires": [
+            [
+                "e3c960873d7e0c98"
+            ]
+        ]
+    },
+    {
+        "id": "e3c960873d7e0c98",
+        "type": "function",
+        "z": "a32c3e3f3e9644bc",
+        "name": "Procesar Configuración MQTT",
+        "func": "msg.payload = {\n    intervalDht: msg.payload.intervalDht,\n    intervalGyro: msg.payload.intervalGyro,\n    intervalLux: msg.payload.intervalLux,\n    intervalBascula: msg.payload.intervalBascula,\n    intervalGps: msg.payload.intervalGps\n};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 280,
+        "wires": [
+            [
+                "b46a71cd0f14bab4"
+            ]
+        ]
+    },
+    {
+        "id": "b46a71cd0f14bab4",
+        "type": "debug",
+        "z": "a32c3e3f3e9644bc",
+        "name": "Ver configuración MQTT",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 780,
+        "y": 280,
+        "wires": []
+    }
+]

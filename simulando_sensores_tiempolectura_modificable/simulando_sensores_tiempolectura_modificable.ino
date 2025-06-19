@@ -4,7 +4,9 @@
 #include <SPI.h>
 #include <ArduinoJson.h>
 #include <time.h>
-
+//-- Enviar datos desde mmqt hive web
+//--Topic evaporador/motorX/cmd GRADOS:120
+//--Topci evaporador/motorX/cmd ON
 // ==== WiFi y MQTT settings
 const char* ssid = "Informatica2024";
 const char* password = "iinf2024";
