@@ -19,6 +19,9 @@ const int mqtt_port = 8883;
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
+// <<<<< AGREGAR VARIABLE DE MODO LOCAL >>>>>
+bool modoLocal = false;
+
 static const char *root_ca PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
@@ -102,11 +105,9 @@ void leerTemperaturaHumedad(unsigned long interval) {
   String fecha = fechaHora.substring(0,10);
   String hora  = fechaHora.substring(11,19);
 
-  // Publica MQTT valor numérico (opcional)
   publishMessage(topic_dht11_temp, String(temp,1), true);
   publishMessage(topic_dht11_hum, String(hum,1), true);
 
-  // Arma y publica JSON
   StaticJsonDocument<256> doc;
   doc["sensor"] = "dht11";
   doc["temperatura"] = temp;
@@ -285,24 +286,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("Intentando conectar MQTT...");
-    String clientId = "ESP32Client-";
-    clientId += String(random(0xffff), HEX);
-    if (client.connect(clientId.c_str(), mqtt_username, mqtt_password)) {
-      Serial.println("Conectado a MQTT");
-      client.subscribe(topic_motorX_cmd);
-      client.subscribe(topic_motorY_cmd);
-    } else {
-      Serial.print("Fallo, rc=");
-      Serial.print(client.state());
-      Serial.println(" intentando en 5 segundos");
-      delay(5000);
-    }
-  }
-}
-
+// <<<<< MODIFICADO: setup() SOLO 5 INTENTOS WIFI >>>>>
 void setup() {
   Serial.begin(115200);
   pinMode(LED_WIFI, OUTPUT);
@@ -313,28 +297,68 @@ void setup() {
   WiFi.begin(ssid, password);
   client.setCallback(callback);
 
-  // LED parpadea mientras conecta
-  while (WiFi.status() != WL_CONNECTED) {
+  // Intentar conectar solo 5 veces
+  int intentosWifi = 0;
+  while (WiFi.status() != WL_CONNECTED && intentosWifi < 5) {
     digitalWrite(LED_WIFI, !digitalRead(LED_WIFI));
-    delay(300);
+    delay(1000);
     Serial.print(".");
+    intentosWifi++;
   }
-  digitalWrite(LED_WIFI, HIGH);
-  Serial.println("\nWiFi conectado\nIP address: ");
-  Serial.println(WiFi.localIP());
 
-  // Configura hora vía NTP
-  configTime(-6 * 3600, 0, "pool.ntp.org", "time.nist.gov"); // GMT-6
-  while(time(nullptr) < 100000){delay(100);Serial.print("*");}
+  if (WiFi.status() == WL_CONNECTED) {
+    digitalWrite(LED_WIFI, HIGH);
+    Serial.println("\nWiFi conectado\nIP address: ");
+    Serial.println(WiFi.localIP());
 
-  espClient.setCACert(root_ca);
-  client.setServer(mqtt_server, mqtt_port);
-  delay(1000);
+    // Configura hora vía NTP
+    configTime(-6 * 3600, 0, "pool.ntp.org", "time.nist.gov"); // GMT-6
+    while(time(nullptr) < 100000){delay(100);Serial.print("*");}
+
+    espClient.setCACert(root_ca);
+    client.setServer(mqtt_server, mqtt_port);
+    delay(1000);
+  } else {
+    modoLocal = true;
+    digitalWrite(LED_WIFI, LOW);
+    Serial.println("\nNo se pudo conectar a WiFi después de 5 intentos. Modo local activado.");
+  }
 }
 
+// <<<<< MODIFICADO: reconnect() SOLO 5 INTENTOS MQTT >>>>>
+void reconnect() {
+  if (modoLocal) return; // No intentar si está en modo local
+
+  int intentosMqtt = 0;
+  while (!client.connected() && intentosMqtt < 5) {
+    Serial.print("Intentando conectar MQTT...");
+    String clientId = "ESP32Client-";
+    clientId += String(random(0xffff), HEX);
+    if (client.connect(clientId.c_str(), mqtt_username, mqtt_password)) {
+      Serial.println("Conectado a MQTT");
+      client.subscribe(topic_motorX_cmd);
+      client.subscribe(topic_motorY_cmd);
+      return;
+    } else {
+      Serial.print("Fallo, rc=");
+      Serial.print(client.state());
+      Serial.println(" intentando en 2 segundos");
+      delay(2000);
+      intentosMqtt++;
+    }
+  }
+  if (!client.connected()) {
+    modoLocal = true;
+    Serial.println("No se pudo conectar a MQTT después de 5 intentos. Modo local activado.");
+  }
+}
+
+// <<<<< MODIFICADO: loop() respeta modoLocal >>>>>
 void loop() {
-  if (!client.connected()) reconnect();
-  client.loop();
+  if (!modoLocal) {
+    if (!client.connected()) reconnect();
+    if (!modoLocal) client.loop(); // Si cambia a modoLocal por fallo MQTT, no llamar client.loop()
+  }
 
   leerTemperaturaHumedad(intervalDht);
   leerGiroscopio(intervalGyro);
@@ -345,8 +369,9 @@ void loop() {
   leerGPS(intervalGps);
 }
 
-// ===== MQTT PUBLISH
+// <<<<< MODIFICADO: publishMessage solo publica por MQTT si no es modoLocal >>>>>
 void publishMessage(const char* topic, String payload, boolean retained) {
-  if (client.publish(topic, payload.c_str(), retained))
+  if (!modoLocal && client.publish(topic, payload.c_str(), retained)) {
     Serial.println("Mensaje publicado [" + String(topic) + "]: " + payload);
+  }
 }
