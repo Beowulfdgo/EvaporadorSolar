@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Thermometer, Droplets, Navigation, Sun, Scale, RotateCw, MapPin, Wifi, WifiOff, Power, PowerOff } from 'lucide-react';
-
+import mqtt from 'mqtt';
 const MQTTDashboard = () => {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [sensorData, setSensorData] = useState({
