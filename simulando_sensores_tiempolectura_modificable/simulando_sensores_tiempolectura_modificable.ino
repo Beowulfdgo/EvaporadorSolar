@@ -297,9 +297,9 @@ void setup() {
   WiFi.begin(ssid, password);
   client.setCallback(callback);
 
-  // Intentar conectar solo 5 veces
+  // Intentar conectar solo 15 veces
   int intentosWifi = 0;
-  while (WiFi.status() != WL_CONNECTED && intentosWifi < 5) {
+  while (WiFi.status() != WL_CONNECTED && intentosWifi < 15) {
     digitalWrite(LED_WIFI, !digitalRead(LED_WIFI));
     delay(1000);
     Serial.print(".");
@@ -321,7 +321,7 @@ void setup() {
   } else {
     modoLocal = true;
     digitalWrite(LED_WIFI, LOW);
-    Serial.println("\nNo se pudo conectar a WiFi después de 5 intentos. Modo local activado.");
+    Serial.println("\nNo se pudo conectar a WiFi después de 15 intentos. Modo local activado.");
   }
 }
 
