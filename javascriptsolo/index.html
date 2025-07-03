@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Monitor y Control MQTT con Gráficas</title>
+  <title>Monitor y Control MQTT con Gráficas y Estado</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -16,7 +16,16 @@
   </style>
 </head>
 <body>
-  <h2>📡 Monitor y Control MQTT con Gráficas</h2>
+  <h2>📡 Monitor y Control MQTT con Gráficas y Estado</h2>
+
+  <!-- Estado de conexión -->
+  <div id="mqtt-status" class="sensor">
+    <div class="sensor-title">Estado de Conexión MQTT:</div>
+    <div>
+      <span id="mqtt-icon" style="font-size: 24px;">🔴</span>
+      <span id="mqtt-message">Desconectado</span>
+    </div>
+  </div>
 
   <!-- Motores -->
   <div id="motorX" class="sensor">
@@ -81,8 +90,8 @@
     });
 
     const motorStatus = { motorX: 'OFF', motorY: 'OFF' };
-
     const maxDataPoints = 20;
+
     const tempChart = createChart('tempChart', 'Temperatura (°C)', 'red');
     const humChart = createChart('humChart', 'Humedad (%)', 'blue');
     const basculaChart = createChart('basculaChart', 'Báscula (mg)', 'green');
@@ -96,8 +105,21 @@
       });
     }
 
+    function updateMqttStatus(connected) {
+      const icon = document.getElementById('mqtt-icon');
+      const message = document.getElementById('mqtt-message');
+      if (connected) {
+        icon.textContent = '🟢';
+        message.textContent = 'Conectado';
+      } else {
+        icon.textContent = '🔴';
+        message.textContent = 'Desconectado';
+      }
+    }
+
     client.on('connect', () => {
       console.log('✅ Conectado al broker MQTT');
+      updateMqttStatus(true);
       const topics = [
         'evaporador/motorX/json',
         'evaporador/motorY/json',
@@ -109,6 +131,15 @@
       ];
       topics.forEach(topic => client.subscribe(topic));
     });
+
+    client.on('close', () => updateMqttStatus(false));
+    client.on('offline', () => updateMqttStatus(false));
+    client.on('error', () => updateMqttStatus(false));
+
+    // Chequeo periódico de conexión
+    setInterval(() => {
+      updateMqttStatus(client.connected);
+    }, 5000);
 
     client.on('message', (topic, message) => {
       console.log(`📥 ${topic}: ${message.toString()}`);
