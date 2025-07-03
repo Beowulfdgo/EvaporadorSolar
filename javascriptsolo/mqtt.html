@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Monitor MQTT de Sensores</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h2 { color: #2c3e50; }
+    .sensor { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 8px; }
+    .sensor-title { font-weight: bold; margin-bottom: 5px; }
+  </style>
+</head>
+<body>
+  <h2>📡 Monitor MQTT de Sensores</h2>
+  <div id="motorX" class="sensor"><div class="sensor-title">Motor X:</div><div id="motorXdata">Esperando datos...</div></div>
+  <div id="motorY" class="sensor"><div class="sensor-title">Motor Y:</div><div id="motorYdata">Esperando datos...</div></div>
+  <div id="giroscopio" class="sensor"><div class="sensor-title">Giroscopio:</div><div id="giroscopiodata">Esperando datos...</div></div>
+  <div id="temperatura" class="sensor"><div class="sensor-title">Temperatura:</div><div id="tempdata">Esperando datos...</div></div>
+  <div id="humedad" class="sensor"><div class="sensor-title">Humedad:</div><div id="humdata">Esperando datos...</div></div>
+
+  <script>
+    const client = mqtt.connect('wss://b6d522ef66224d36a55e598722e7338d.s1.eu.hivemq.cloud:8884/mqtt', {
+      username: 'evaporador',
+      password: 'Evaporador2025',
+      reconnectPeriod: 1000,
+      clean: true
+    });
+
+    client.on('connect', () => {
+      console.log('✅ Conectado al broker MQTT');
+      const topics = [
+        'evaporador/motorX/json',
+        'evaporador/motorY/json',
+        'evaporador/giroscopio/json',
+        'evaporador/dht11/temperatura',
+        'evaporador/dht11/humedad'
+      ];
+      topics.forEach(topic => client.subscribe(topic));
+    });
+
+    client.on('message', (topic, message) => {
+      console.log(`📥 ${topic}: ${message.toString()}`);
+      try {
+        switch (topic) {
+          case 'evaporador/motorX/json':
+            const motorX = JSON.parse(message);
+            document.getElementById('motorXdata').innerHTML =
+              `Estado: ${motorX.estatus}<br>Grados: ${motorX.grados}<br>Hora: ${motorX.hora}`;
+            break;
+          case 'evaporador/motorY/json':
+            const motorY = JSON.parse(message);
+            document.getElementById('motorYdata').innerHTML =
+              `Estado: ${motorY.estatus}<br>Grados: ${motorY.grados}<br>Hora: ${motorY.hora}`;
+            break;
+          case 'evaporador/giroscopio/json':
+            const giroscopio = JSON.parse(message);
+            document.getElementById('giroscopiodata').innerHTML =
+              `Latitud: ${giroscopio.latitud}<br>Longitud: ${giroscopio.longitud}<br>Hora: ${giroscopio.hora}`;
+            break;
+          case 'evaporador/dht11/temperatura':
+            document.getElementById('tempdata').innerHTML = `${message} °C`;
+            break;
+          case 'evaporador/dht11/humedad':
+            document.getElementById('humdata').innerHTML = `${message} %`;
+            break;
+        }
+      } catch (err) {
+        console.error('❌ Error procesando mensaje:', err);
+      }
+    });
+  </script>
+</body>
+</html>
