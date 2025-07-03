@@ -70,6 +70,9 @@ const char* topic_bascula = "evaporador/bascula/mg";
 const char* topic_motorX_cmd = "evaporador/motorX/cmd";
 const char* topic_motorY_cmd = "evaporador/motorY/cmd";
 
+unsigned long lastHeartbeat = 0;
+const unsigned long heartbeatInterval = 5000;  //Validacion del esp32-Sensores 5 segundos
+
 float last_gps_lat = 19.4326;
 float last_gps_lon = -99.1332;
 String motorX_status = "OFF";
@@ -359,6 +362,15 @@ void loop() {
     if (!client.connected()) reconnect();
     if (!modoLocal) client.loop(); // Si cambia a modoLocal por fallo MQTT, no llamar client.loop()
   }
+
+  //status de evaporador (latido)
+  unsigned long now = millis();
+  if (now - lastHeartbeat > heartbeatInterval) {
+    lastHeartbeat = now;
+    client.publish("evaporador/status", "online");
+    Serial.println("Heartbeat enviado");
+  }
+ 
 
   leerTemperaturaHumedad(intervalDht);
   leerGiroscopio(intervalGyro);

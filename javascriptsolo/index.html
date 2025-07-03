@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Monitor y Control MQTT con Gráficas y Estado</title>
+  <title>Monitor y Control MQTT con Detección de ESP32</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -16,11 +16,11 @@
   </style>
 </head>
 <body>
-  <h2>📡 Monitor y Control MQTT con Gráficas y Estado</h2>
+  <h2>📡 Monitor y Control MQTT con Detección de ESP32</h2>
 
   <!-- Estado de conexión -->
   <div id="mqtt-status" class="sensor">
-    <div class="sensor-title">Estado de Conexión MQTT:</div>
+    <div class="sensor-title">Estado de Conexión MQTT/ESP32:</div>
     <div>
       <span id="mqtt-icon" style="font-size: 24px;">🔴</span>
       <span id="mqtt-message">Desconectado</span>
@@ -91,6 +91,8 @@
 
     const motorStatus = { motorX: 'OFF', motorY: 'OFF' };
     const maxDataPoints = 20;
+    const ESP_TIMEOUT_MS = 10000;  // 10 segundos sin heartbeat
+    let lastEspStatusTime = Date.now();
 
     const tempChart = createChart('tempChart', 'Temperatura (°C)', 'red');
     const humChart = createChart('humChart', 'Humedad (%)', 'blue');
@@ -105,12 +107,15 @@
       });
     }
 
-    function updateMqttStatus(connected) {
+    function updateMqttStatusIcon(status) {
       const icon = document.getElementById('mqtt-icon');
       const message = document.getElementById('mqtt-message');
-      if (connected) {
+      if (status === 'connected') {
         icon.textContent = '🟢';
-        message.textContent = 'Conectado';
+        message.textContent = 'ESP32 conectado';
+      } else if (status === 'no_heartbeat') {
+        icon.textContent = '🟡';
+        message.textContent = 'ESP32 sin respuesta';
       } else {
         icon.textContent = '🔴';
         message.textContent = 'Desconectado';
@@ -119,8 +124,8 @@
 
     client.on('connect', () => {
       console.log('✅ Conectado al broker MQTT');
-      updateMqttStatus(true);
       const topics = [
+        'evaporador/status',
         'evaporador/motorX/json',
         'evaporador/motorY/json',
         'evaporador/giroscopio/json',
@@ -132,69 +137,73 @@
       topics.forEach(topic => client.subscribe(topic));
     });
 
-    client.on('close', () => updateMqttStatus(false));
-    client.on('offline', () => updateMqttStatus(false));
-    client.on('error', () => updateMqttStatus(false));
+    client.on('close', () => updateMqttStatusIcon('disconnected'));
+    client.on('offline', () => updateMqttStatusIcon('disconnected'));
+    client.on('error', () => updateMqttStatusIcon('disconnected'));
 
-    // Chequeo periódico de conexión
+    // Chequeo periódico de heartbeat
     setInterval(() => {
-      updateMqttStatus(client.connected);
-    }, 5000);
+      const now = Date.now();
+      if (!client.connected) {
+        updateMqttStatusIcon('disconnected');
+      } else if (now - lastEspStatusTime > ESP_TIMEOUT_MS) {
+        updateMqttStatusIcon('no_heartbeat');
+      } else {
+        updateMqttStatusIcon('connected');
+      }
+    }, 1000);
 
     client.on('message', (topic, message) => {
-      console.log(`📥 ${topic}: ${message.toString()}`);
-      try {
-        switch (topic) {
-          case 'evaporador/motorX/json':
-          case 'evaporador/motorY/json':
-            const motor = JSON.parse(message);
-            const id = topic.includes('motorX') ? 'motorX' : 'motorY';
-            motorStatus[id] = motor.estatus;
-            document.getElementById(id + 'data').innerHTML =
-              `Estado: ${motor.estatus}<br>Grados: ${motor.grados}<br>Hora: ${motor.hora}`;
-            document.getElementById(id + 'grados').value = motor.grados;
-            break;
-          case 'evaporador/giroscopio/json':
-            const giro = JSON.parse(message);
-            document.getElementById('giroscopiodata').innerHTML =
-              `Latitud: ${giro.latitud}<br>Longitud: ${giro.longitud}<br>Hora: ${giro.hora}`;
-            break;
-          case 'evaporador/dht11/temperatura':
-            const temp = parseFloat(message);
-            document.getElementById('tempdata').innerHTML = `${temp} °C`;
-            addChartData(tempChart, temp);
-            break;
-          case 'evaporador/dht11/humedad':
-            const hum = parseFloat(message);
-            document.getElementById('humdata').innerHTML = `${hum} %`;
-            addChartData(humChart, hum);
-            break;
-          case 'evaporador/bascula/mg':
-            const peso = parseFloat(message);
-            document.getElementById('basculadata').innerHTML = `${peso} mg`;
-            addChartData(basculaChart, peso);
-            break;
-          case 'evaporador/luminosidad':
-            const luz = parseFloat(message);
-            document.getElementById('lumdata').innerHTML = `${luz}`;
-            addChartData(lumChart, luz);
-            break;
-        }
-      } catch (err) {
-        console.error('❌ Error procesando mensaje:', err);
+      if (topic === 'evaporador/status') {
+        lastEspStatusTime = Date.now();
+      }
+
+      switch (topic) {
+        case 'evaporador/motorX/json':
+        case 'evaporador/motorY/json':
+          const motor = JSON.parse(message);
+          const id = topic.includes('motorX') ? 'motorX' : 'motorY';
+          motorStatus[id] = motor.estatus;
+          document.getElementById(id + 'data').innerHTML =
+            `Estado: ${motor.estatus}<br>Grados: ${motor.grados}<br>Hora: ${motor.hora}`;
+          document.getElementById(id + 'grados').value = motor.grados;
+          break;
+        case 'evaporador/giroscopio/json':
+          const giro = JSON.parse(message);
+          document.getElementById('giroscopiodata').innerHTML =
+            `Latitud: ${giro.latitud}<br>Longitud: ${giro.longitud}<br>Hora: ${giro.hora}`;
+          break;
+        case 'evaporador/dht11/temperatura':
+          const temp = parseFloat(message);
+          document.getElementById('tempdata').innerHTML = `${temp} °C`;
+          addChartData(tempChart, temp);
+          break;
+        case 'evaporador/dht11/humedad':
+          const hum = parseFloat(message);
+          document.getElementById('humdata').innerHTML = `${hum} %`;
+          addChartData(humChart, hum);
+          break;
+        case 'evaporador/bascula/mg':
+          const peso = parseFloat(message);
+          document.getElementById('basculadata').innerHTML = `${peso} mg`;
+          addChartData(basculaChart, peso);
+          break;
+        case 'evaporador/luminosidad':
+          const luz = parseFloat(message);
+          document.getElementById('lumdata').innerHTML = `${luz}`;
+          addChartData(lumChart, luz);
+          break;
       }
     });
 
     function toggleMotor(motor) {
       const nuevoEstado = motorStatus[motor] === 'OFF' ? 'ON' : 'OFF';
       client.publish(`evaporador/${motor}/cmd`, nuevoEstado);
-      console.log(`Enviado a ${motor}: ${nuevoEstado}`);
     }
 
     function sendGrados(motor) {
       const grados = parseInt(document.getElementById(motor + 'grados').value);
       client.publish(`evaporador/${motor}/cmd`, `GRADOS:${grados}`);
-      console.log(`Enviado a ${motor}: GRADOS:${grados}`);
     }
 
     function addChartData(chart, value) {
