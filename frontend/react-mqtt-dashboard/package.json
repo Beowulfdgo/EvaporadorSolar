@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "leaflet": "^1.9.4",
+    "lucide-react": "^0.523.0",
     "mqtt": "^5.13.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
