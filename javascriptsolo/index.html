@@ -2,8 +2,9 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Monitor y Control MQTT (Comandos Simples)</title>
+  <title>Monitor y Control MQTT con Gráficas</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     h2 { color: #2c3e50; }
@@ -11,12 +12,13 @@
     .sensor-title { font-weight: bold; margin-bottom: 5px; }
     .control { margin-top: 10px; }
     button, input { margin-right: 5px; padding: 5px 10px; }
+    canvas { max-width: 100%; height: 300px; }
   </style>
 </head>
 <body>
-  <h2>📡 Monitor y Control MQTT (con Báscula y Comandos Simples)</h2>
+  <h2>📡 Monitor y Control MQTT con Gráficas</h2>
 
-  <!-- Motor X -->
+  <!-- Motores -->
   <div id="motorX" class="sensor">
     <div class="sensor-title">Motor X:</div>
     <div id="motorXdata">Esperando datos...</div>
@@ -27,7 +29,6 @@
     </div>
   </div>
 
-  <!-- Motor Y -->
   <div id="motorY" class="sensor">
     <div class="sensor-title">Motor Y:</div>
     <div id="motorYdata">Esperando datos...</div>
@@ -38,29 +39,38 @@
     </div>
   </div>
 
-  <!-- Giroscopio -->
+  <!-- Sensores -->
   <div id="giroscopio" class="sensor">
     <div class="sensor-title">Giroscopio:</div>
     <div id="giroscopiodata">Esperando datos...</div>
   </div>
 
-  <!-- Temperatura -->
   <div id="temperatura" class="sensor">
     <div class="sensor-title">Temperatura:</div>
     <div id="tempdata">Esperando datos...</div>
   </div>
 
-  <!-- Humedad -->
   <div id="humedad" class="sensor">
     <div class="sensor-title">Humedad:</div>
     <div id="humdata">Esperando datos...</div>
   </div>
 
-  <!-- Báscula -->
   <div id="bascula" class="sensor">
     <div class="sensor-title">Báscula:</div>
     <div id="basculadata">Esperando datos...</div>
   </div>
+
+  <div id="luminosidad" class="sensor">
+    <div class="sensor-title">Luminosidad:</div>
+    <div id="lumdata">Esperando datos...</div>
+  </div>
+
+  <!-- Gráficas -->
+  <h2>📈 Histórico de Datos</h2>
+  <canvas id="tempChart"></canvas>
+  <canvas id="humChart"></canvas>
+  <canvas id="basculaChart"></canvas>
+  <canvas id="lumChart"></canvas>
 
   <script>
     const client = mqtt.connect('wss://b6d522ef66224d36a55e598722e7338d.s1.eu.hivemq.cloud:8884/mqtt', {
@@ -72,6 +82,20 @@
 
     const motorStatus = { motorX: 'OFF', motorY: 'OFF' };
 
+    const maxDataPoints = 20;
+    const tempChart = createChart('tempChart', 'Temperatura (°C)', 'red');
+    const humChart = createChart('humChart', 'Humedad (%)', 'blue');
+    const basculaChart = createChart('basculaChart', 'Báscula (mg)', 'green');
+    const lumChart = createChart('lumChart', 'Luminosidad', 'orange');
+
+    function createChart(id, label, color) {
+      return new Chart(document.getElementById(id), {
+        type: 'line',
+        data: { labels: [], datasets: [{ label, borderColor: color, fill: false, data: [] }] },
+        options: { scales: { x: { display: true }, y: { beginAtZero: true } } }
+      });
+    }
+
     client.on('connect', () => {
       console.log('✅ Conectado al broker MQTT');
       const topics = [
@@ -80,7 +104,8 @@
         'evaporador/giroscopio/json',
         'evaporador/dht11/temperatura',
         'evaporador/dht11/humedad',
-        'evaporador/bascula/mg'   // 🔥 TOPIC CORRECTO
+        'evaporador/bascula/mg',
+        'evaporador/luminosidad'
       ];
       topics.forEach(topic => client.subscribe(topic));
     });
@@ -99,18 +124,29 @@
             document.getElementById(id + 'grados').value = motor.grados;
             break;
           case 'evaporador/giroscopio/json':
-            const giroscopio = JSON.parse(message);
+            const giro = JSON.parse(message);
             document.getElementById('giroscopiodata').innerHTML =
-              `Latitud: ${giroscopio.latitud}<br>Longitud: ${giroscopio.longitud}<br>Hora: ${giroscopio.hora}`;
+              `Latitud: ${giro.latitud}<br>Longitud: ${giro.longitud}<br>Hora: ${giro.hora}`;
             break;
           case 'evaporador/dht11/temperatura':
-            document.getElementById('tempdata').innerHTML = `${message} °C`;
+            const temp = parseFloat(message);
+            document.getElementById('tempdata').innerHTML = `${temp} °C`;
+            addChartData(tempChart, temp);
             break;
           case 'evaporador/dht11/humedad':
-            document.getElementById('humdata').innerHTML = `${message} %`;
+            const hum = parseFloat(message);
+            document.getElementById('humdata').innerHTML = `${hum} %`;
+            addChartData(humChart, hum);
             break;
-          case 'evaporador/bascula/mg':  // ✅ Aquí muestra el valor
-            document.getElementById('basculadata').innerHTML = `${message} mg`;
+          case 'evaporador/bascula/mg':
+            const peso = parseFloat(message);
+            document.getElementById('basculadata').innerHTML = `${peso} mg`;
+            addChartData(basculaChart, peso);
+            break;
+          case 'evaporador/luminosidad':
+            const luz = parseFloat(message);
+            document.getElementById('lumdata').innerHTML = `${luz}`;
+            addChartData(lumChart, luz);
             break;
         }
       } catch (err) {
@@ -128,6 +164,17 @@
       const grados = parseInt(document.getElementById(motor + 'grados').value);
       client.publish(`evaporador/${motor}/cmd`, `GRADOS:${grados}`);
       console.log(`Enviado a ${motor}: GRADOS:${grados}`);
+    }
+
+    function addChartData(chart, value) {
+      const time = new Date().toLocaleTimeString();
+      chart.data.labels.push(time);
+      chart.data.datasets[0].data.push(value);
+      if (chart.data.labels.length > maxDataPoints) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+      }
+      chart.update();
     }
   </script>
 </body>
