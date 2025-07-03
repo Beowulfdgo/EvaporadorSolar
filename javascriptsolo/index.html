@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Monitor y Control MQTT con Detección de ESP32</title>
+  <title>Monitor y Control MQTT con Estado del Broker y ESP32</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -16,14 +16,23 @@
   </style>
 </head>
 <body>
-  <h2>📡 Monitor y Control MQTT con Detección de ESP32</h2>
+  <h2>📡 Monitor y Control MQTT con Estado del Broker y ESP32</h2>
 
-  <!-- Estado de conexión -->
-  <div id="mqtt-status" class="sensor">
-    <div class="sensor-title">Estado de Conexión MQTT/ESP32:</div>
+  <!-- Estado de conexión MQTT -->
+  <div id="broker-status" class="sensor">
+    <div class="sensor-title">Estado del Broker MQTT:</div>
     <div>
-      <span id="mqtt-icon" style="font-size: 24px;">🔴</span>
-      <span id="mqtt-message">Desconectado</span>
+      <span id="broker-icon" style="font-size: 24px;">🔴</span>
+      <span id="broker-message">Desconectado</span>
+    </div>
+  </div>
+
+  <!-- Estado del ESP32 -->
+  <div id="esp32-status" class="sensor">
+    <div class="sensor-title">Estado del ESP32:</div>
+    <div>
+      <span id="esp32-icon" style="font-size: 24px;">🔴</span>
+      <span id="esp32-message">Desconectado</span>
     </div>
   </div>
 
@@ -89,10 +98,10 @@
       clean: true
     });
 
+    const ESP_TIMEOUT_MS = 10000;
+    let lastEspStatusTime = Date.now();
     const motorStatus = { motorX: 'OFF', motorY: 'OFF' };
     const maxDataPoints = 20;
-    const ESP_TIMEOUT_MS = 10000;  // 10 segundos sin heartbeat
-    let lastEspStatusTime = Date.now();
 
     const tempChart = createChart('tempChart', 'Temperatura (°C)', 'red');
     const humChart = createChart('humChart', 'Humedad (%)', 'blue');
@@ -107,15 +116,27 @@
       });
     }
 
-    function updateMqttStatusIcon(status) {
-      const icon = document.getElementById('mqtt-icon');
-      const message = document.getElementById('mqtt-message');
-      if (status === 'connected') {
+    function updateBrokerStatus(connected) {
+      const icon = document.getElementById('broker-icon');
+      const message = document.getElementById('broker-message');
+      if (connected) {
         icon.textContent = '🟢';
-        message.textContent = 'ESP32 conectado';
+        message.textContent = 'Conectado';
+      } else {
+        icon.textContent = '🔴';
+        message.textContent = 'Desconectado';
+      }
+    }
+
+    function updateEsp32Status(status) {
+      const icon = document.getElementById('esp32-icon');
+      const message = document.getElementById('esp32-message');
+      if (status === 'online') {
+        icon.textContent = '🟢';
+        message.textContent = 'Enviando datos';
       } else if (status === 'no_heartbeat') {
         icon.textContent = '🟡';
-        message.textContent = 'ESP32 sin respuesta';
+        message.textContent = 'Sin latido';
       } else {
         icon.textContent = '🔴';
         message.textContent = 'Desconectado';
@@ -123,7 +144,7 @@
     }
 
     client.on('connect', () => {
-      console.log('✅ Conectado al broker MQTT');
+      updateBrokerStatus(true);
       const topics = [
         'evaporador/status',
         'evaporador/motorX/json',
@@ -137,19 +158,22 @@
       topics.forEach(topic => client.subscribe(topic));
     });
 
-    client.on('close', () => updateMqttStatusIcon('disconnected'));
-    client.on('offline', () => updateMqttStatusIcon('disconnected'));
-    client.on('error', () => updateMqttStatusIcon('disconnected'));
+    client.on('close', () => updateBrokerStatus(false));
+    client.on('offline', () => updateBrokerStatus(false));
+    client.on('error', () => updateBrokerStatus(false));
 
-    // Chequeo periódico de heartbeat
     setInterval(() => {
       const now = Date.now();
       if (!client.connected) {
-        updateMqttStatusIcon('disconnected');
-      } else if (now - lastEspStatusTime > ESP_TIMEOUT_MS) {
-        updateMqttStatusIcon('no_heartbeat');
+        updateBrokerStatus(false);
+        updateEsp32Status('disconnected');
       } else {
-        updateMqttStatusIcon('connected');
+        updateBrokerStatus(true);
+        if (now - lastEspStatusTime > ESP_TIMEOUT_MS) {
+          updateEsp32Status('no_heartbeat');
+        } else {
+          updateEsp32Status('online');
+        }
       }
     }, 1000);
 
