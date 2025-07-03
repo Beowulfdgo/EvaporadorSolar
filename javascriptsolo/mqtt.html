@@ -2,22 +2,65 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Monitor MQTT de Sensores</title>
+  <title>Monitor y Control MQTT (Comandos Simples)</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     h2 { color: #2c3e50; }
     .sensor { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 8px; }
     .sensor-title { font-weight: bold; margin-bottom: 5px; }
+    .control { margin-top: 10px; }
+    button, input { margin-right: 5px; padding: 5px 10px; }
   </style>
 </head>
 <body>
-  <h2>📡 Monitor MQTT de Sensores</h2>
-  <div id="motorX" class="sensor"><div class="sensor-title">Motor X:</div><div id="motorXdata">Esperando datos...</div></div>
-  <div id="motorY" class="sensor"><div class="sensor-title">Motor Y:</div><div id="motorYdata">Esperando datos...</div></div>
-  <div id="giroscopio" class="sensor"><div class="sensor-title">Giroscopio:</div><div id="giroscopiodata">Esperando datos...</div></div>
-  <div id="temperatura" class="sensor"><div class="sensor-title">Temperatura:</div><div id="tempdata">Esperando datos...</div></div>
-  <div id="humedad" class="sensor"><div class="sensor-title">Humedad:</div><div id="humdata">Esperando datos...</div></div>
+  <h2>📡 Monitor y Control MQTT (con Báscula y Comandos Simples)</h2>
+
+  <!-- Motor X -->
+  <div id="motorX" class="sensor">
+    <div class="sensor-title">Motor X:</div>
+    <div id="motorXdata">Esperando datos...</div>
+    <div class="control">
+      <button onclick="toggleMotor('motorX')">ON/OFF</button>
+      <input id="motorXgrados" type="number" value="0" />
+      <button onclick="sendGrados('motorX')">Mover a Grados</button>
+    </div>
+  </div>
+
+  <!-- Motor Y -->
+  <div id="motorY" class="sensor">
+    <div class="sensor-title">Motor Y:</div>
+    <div id="motorYdata">Esperando datos...</div>
+    <div class="control">
+      <button onclick="toggleMotor('motorY')">ON/OFF</button>
+      <input id="motorYgrados" type="number" value="0" />
+      <button onclick="sendGrados('motorY')">Mover a Grados</button>
+    </div>
+  </div>
+
+  <!-- Giroscopio -->
+  <div id="giroscopio" class="sensor">
+    <div class="sensor-title">Giroscopio:</div>
+    <div id="giroscopiodata">Esperando datos...</div>
+  </div>
+
+  <!-- Temperatura -->
+  <div id="temperatura" class="sensor">
+    <div class="sensor-title">Temperatura:</div>
+    <div id="tempdata">Esperando datos...</div>
+  </div>
+
+  <!-- Humedad -->
+  <div id="humedad" class="sensor">
+    <div class="sensor-title">Humedad:</div>
+    <div id="humdata">Esperando datos...</div>
+  </div>
+
+  <!-- Báscula -->
+  <div id="bascula" class="sensor">
+    <div class="sensor-title">Báscula:</div>
+    <div id="basculadata">Esperando datos...</div>
+  </div>
 
   <script>
     const client = mqtt.connect('wss://b6d522ef66224d36a55e598722e7338d.s1.eu.hivemq.cloud:8884/mqtt', {
@@ -27,6 +70,8 @@
       clean: true
     });
 
+    const motorStatus = { motorX: 'OFF', motorY: 'OFF' };
+
     client.on('connect', () => {
       console.log('✅ Conectado al broker MQTT');
       const topics = [
@@ -34,7 +79,8 @@
         'evaporador/motorY/json',
         'evaporador/giroscopio/json',
         'evaporador/dht11/temperatura',
-        'evaporador/dht11/humedad'
+        'evaporador/dht11/humedad',
+        'evaporador/bascula/mg'   // 🔥 TOPIC CORRECTO
       ];
       topics.forEach(topic => client.subscribe(topic));
     });
@@ -44,14 +90,13 @@
       try {
         switch (topic) {
           case 'evaporador/motorX/json':
-            const motorX = JSON.parse(message);
-            document.getElementById('motorXdata').innerHTML =
-              `Estado: ${motorX.estatus}<br>Grados: ${motorX.grados}<br>Hora: ${motorX.hora}`;
-            break;
           case 'evaporador/motorY/json':
-            const motorY = JSON.parse(message);
-            document.getElementById('motorYdata').innerHTML =
-              `Estado: ${motorY.estatus}<br>Grados: ${motorY.grados}<br>Hora: ${motorY.hora}`;
+            const motor = JSON.parse(message);
+            const id = topic.includes('motorX') ? 'motorX' : 'motorY';
+            motorStatus[id] = motor.estatus;
+            document.getElementById(id + 'data').innerHTML =
+              `Estado: ${motor.estatus}<br>Grados: ${motor.grados}<br>Hora: ${motor.hora}`;
+            document.getElementById(id + 'grados').value = motor.grados;
             break;
           case 'evaporador/giroscopio/json':
             const giroscopio = JSON.parse(message);
@@ -64,11 +109,26 @@
           case 'evaporador/dht11/humedad':
             document.getElementById('humdata').innerHTML = `${message} %`;
             break;
+          case 'evaporador/bascula/mg':  // ✅ Aquí muestra el valor
+            document.getElementById('basculadata').innerHTML = `${message} mg`;
+            break;
         }
       } catch (err) {
         console.error('❌ Error procesando mensaje:', err);
       }
     });
+
+    function toggleMotor(motor) {
+      const nuevoEstado = motorStatus[motor] === 'OFF' ? 'ON' : 'OFF';
+      client.publish(`evaporador/${motor}/cmd`, nuevoEstado);
+      console.log(`Enviado a ${motor}: ${nuevoEstado}`);
+    }
+
+    function sendGrados(motor) {
+      const grados = parseInt(document.getElementById(motor + 'grados').value);
+      client.publish(`evaporador/${motor}/cmd`, `GRADOS:${grados}`);
+      console.log(`Enviado a ${motor}: GRADOS:${grados}`);
+    }
   </script>
 </body>
 </html>
