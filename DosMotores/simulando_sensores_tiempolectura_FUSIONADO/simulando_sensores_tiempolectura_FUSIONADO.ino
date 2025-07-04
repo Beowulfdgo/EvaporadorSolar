@@ -403,8 +403,8 @@ void loop() {
   unsigned long now = millis();
   if (now - lastHeartbeat > heartbeatInterval) {
     lastHeartbeat = now;
-    client.publish("evaporador/status", "online");
-    Serial.println("Heartbeat enviado");
+    client.publish("evaporador/Motorstatus", "online");
+    Serial.println("Motorstatus heartbeat enviado");
   }
  
 
