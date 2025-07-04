@@ -236,6 +236,19 @@
       }
     }
 
+    // Variable para saber si el usuario ha editado el input de grados manualmente
+    let userChangedMotorXGrados = false;
+
+    // Evento para marcar cuando el usuario cambia el input manualmente
+    document.addEventListener('DOMContentLoaded', function () {
+      updateMotorControls('motorX', 'OFF');
+      const gradosInput = document.getElementById('motorXgrados');
+      gradosInput.value = "0";
+      gradosInput.addEventListener('input', function () {
+        userChangedMotorXGrados = true;
+      });
+    });
+
     client.on('connect', () => {
       updateBrokerStatus(true);
       const topics = [
@@ -306,15 +319,21 @@
       }
 
       switch (topic) {
-        case 'evaporador/motorX/json':
+        case 'evaporador/motorX/json': {
           const motor = JSON.parse(message);
           const id = 'motorX';
           motorStatus[id] = motor.estatus;
           document.getElementById(id + 'data').innerHTML =
             `Estado: ${motor.estatus}<br>Grados: ${motor.grados}<br>Hora: ${motor.hora}`;
-          document.getElementById(id + 'grados').value = motor.grados;
+          // Ya no actualizamos el input de grados con el valor del ESP32
+          // Solo lo dejamos en 0 cuando el estado del motor cambia a ON
+          if (motor.estatus === "ON" && !userChangedMotorXGrados) {
+            // Si el usuario no ha cambiado el valor manualmente, lo dejamos en cero
+            document.getElementById(id + 'grados').value = "0";
+          }
           updateMotorControls(id, motor.estatus); // Solo aquí se maneja el estado de los controles
           break;
+        }
         case 'evaporador/giroscopio/json':
           const giro = JSON.parse(message);
           document.getElementById('giroscopiodata').innerHTML =
@@ -347,6 +366,11 @@
       if (motor !== 'motorX') return;
       const nuevoEstado = motorStatus[motor] === 'OFF' ? 'ON' : 'OFF';
       client.publish(`evaporador/${motor}/cmd`, nuevoEstado);
+      // Cuando el motor se enciende, reseteamos el input a cero y el flag de usuario
+      if (nuevoEstado === 'ON') {
+        document.getElementById(motor + 'grados').value = "0";
+        userChangedMotorXGrados = false;
+      }
       // No modificar controles aquí, solo esperar mensaje MQTT real
     }
 
@@ -354,7 +378,8 @@
       if (motor !== 'motorX') return;
       const grados = parseInt(document.getElementById(motor + 'grados').value);
       client.publish(`evaporador/${motor}/cmd`, `GRADOS:${grados}`);
-      // No modificar controles aquí, solo esperar mensaje MQTT real
+      // Después de enviar, reseteamos el flag para que si hay ON/OFF vuelvan a cero
+      userChangedMotorXGrados = false;
     }
 
     function addChartData(chart, value) {
@@ -367,11 +392,6 @@
       }
       chart.update();
     }
-
-    // Inicializar controles según estado inicial (OFF)
-    document.addEventListener('DOMContentLoaded', function () {
-      updateMotorControls('motorX', 'OFF');
-    });
   </script>
 </body>
 </html>
