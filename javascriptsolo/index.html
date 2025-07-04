@@ -13,84 +13,150 @@
     .control { margin-top: 10px; }
     button, input { margin-right: 5px; padding: 5px 10px; }
     canvas { max-width: 100%; height: 300px; }
+    /* Tabs CSS */
+    .tab {
+      overflow: hidden;
+      border-bottom: 1px solid #ccc;
+      margin-bottom: 20px;
+    }
+    .tab button {
+      background-color: inherit;
+      float: left;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 14px 16px;
+      transition: 0.3s;
+      font-size: 16px;
+    }
+    .tab button.active {
+      background-color: #2c3e50;
+      color: white;
+      border-radius: 8px 8px 0 0;
+    }
+    .tabcontent {
+      display: none;
+    }
+    .tabcontent.active {
+      display: block;
+    }
+    .hide {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
   <h2>📡 Monitor y Control MQTT con Estado del Broker y ESP32</h2>
 
-  <!-- Estado de conexión MQTT -->
-  <div id="broker-status" class="sensor">
-    <div class="sensor-title">Estado del Broker MQTT:</div>
-    <div>
-      <span id="broker-icon" style="font-size: 24px;">🔴</span>
-      <span id="broker-message">Desconectado</span>
+  <!-- Pestañas -->
+  <div class="tab">
+    <button class="tablinks active" onclick="openTab(event, 'experimento')">Experimento</button>
+    <button class="tablinks" onclick="openTab(event, 'configuracion')">Configuración</button>
+  </div>
+
+  <!-- Contenido de la pestaña: Experimento -->
+  <div id="experimento" class="tabcontent active">
+    <!-- Estado de conexión MQTT -->
+    <div id="broker-status" class="sensor">
+      <div class="sensor-title">Estado del Broker MQTT:</div>
+      <div>
+        <span id="broker-icon" style="font-size: 24px;">🔴</span>
+        <span id="broker-message">Desconectado</span>
+      </div>
+    </div>
+
+    <!-- Estado del ESP32 -->
+    <div id="esp32-status" class="sensor">
+      <div class="sensor-title">Estado del ESP32:</div>
+      <div>
+        <span id="esp32-icon" style="font-size: 24px;">🔴</span>
+        <span id="esp32-message">Desconectado</span>
+      </div>
+    </div>
+
+    <!-- Sensores -->
+    <div id="giroscopio" class="sensor">
+      <div class="sensor-title">Giroscopio:</div>
+      <div id="giroscopiodata">Esperando datos...</div>
+    </div>
+
+    <div id="temperatura" class="sensor">
+      <div class="sensor-title">Temperatura:</div>
+      <div id="tempdata">Esperando datos...</div>
+    </div>
+
+    <div id="humedad" class="sensor">
+      <div class="sensor-title">Humedad:</div>
+      <div id="humdata">Esperando datos...</div>
+    </div>
+
+    <div id="bascula" class="sensor">
+      <div class="sensor-title">Báscula:</div>
+      <div id="basculadata">Esperando datos...</div>
+    </div>
+
+    <div id="luminosidad" class="sensor">
+      <div class="sensor-title">Luminosidad:</div>
+      <div id="lumdata">Esperando datos...</div>
+    </div>
+
+    <!-- Gráficas -->
+    <h2>📈 Histórico de Datos</h2>
+    <canvas id="tempChart"></canvas>
+    <canvas id="humChart"></canvas>
+    <canvas id="basculaChart"></canvas>
+    <canvas id="lumChart"></canvas>
+  </div>
+
+  <!-- Contenido de la pestaña: Configuración -->
+  <div id="configuracion" class="tabcontent">
+    <!-- Semáforo para el estado de los motores -->
+    <div id="motor-status" class="sensor">
+      <div class="sensor-title">Estado de los Motores:</div>
+      <div>
+        <span id="motor-status-icon" style="font-size: 24px;">🔴</span>
+        <span id="motor-status-message">Desconectado</span>
+      </div>
+    </div>
+
+    <!-- Motores -->
+    <div id="motorX" class="sensor">
+      <div class="sensor-title">Motor X:</div>
+      <div id="motorXdata">Esperando datos...</div>
+      <div class="control">
+        <button id="motorXtoggle" onclick="toggleMotor('motorX')">ON/OFF</button>
+        <input id="motorXgrados" type="number" value="0" />
+        <button id="motorXmover" onclick="sendGrados('motorX')">Mover a Grados</button>
+      </div>
+    </div>
+
+    <div id="motorY" class="sensor">
+      <div class="sensor-title">Motor Y:</div>
+      <div id="motorYdata">Esperando datos...</div>
+      <div class="control">
+        <button id="motorYtoggle" onclick="toggleMotor('motorY')">ON/OFF</button>
+        <input id="motorYgrados" type="number" value="0" />
+        <button id="motorYmover" onclick="sendGrados('motorY')">Mover a Grados</button>
+      </div>
     </div>
   </div>
-
-  <!-- Estado del ESP32 -->
-  <div id="esp32-status" class="sensor">
-    <div class="sensor-title">Estado del ESP32:</div>
-    <div>
-      <span id="esp32-icon" style="font-size: 24px;">🔴</span>
-      <span id="esp32-message">Desconectado</span>
-    </div>
-  </div>
-
-  <!-- Motores -->
-  <div id="motorX" class="sensor">
-    <div class="sensor-title">Motor X:</div>
-    <div id="motorXdata">Esperando datos...</div>
-    <div class="control">
-      <button onclick="toggleMotor('motorX')">ON/OFF</button>
-      <input id="motorXgrados" type="number" value="0" />
-      <button onclick="sendGrados('motorX')">Mover a Grados</button>
-    </div>
-  </div>
-
-  <div id="motorY" class="sensor">
-    <div class="sensor-title">Motor Y:</div>
-    <div id="motorYdata">Esperando datos...</div>
-    <div class="control">
-      <button onclick="toggleMotor('motorY')">ON/OFF</button>
-      <input id="motorYgrados" type="number" value="0" />
-      <button onclick="sendGrados('motorY')">Mover a Grados</button>
-    </div>
-  </div>
-
-  <!-- Sensores -->
-  <div id="giroscopio" class="sensor">
-    <div class="sensor-title">Giroscopio:</div>
-    <div id="giroscopiodata">Esperando datos...</div>
-  </div>
-
-  <div id="temperatura" class="sensor">
-    <div class="sensor-title">Temperatura:</div>
-    <div id="tempdata">Esperando datos...</div>
-  </div>
-
-  <div id="humedad" class="sensor">
-    <div class="sensor-title">Humedad:</div>
-    <div id="humdata">Esperando datos...</div>
-  </div>
-
-  <div id="bascula" class="sensor">
-    <div class="sensor-title">Báscula:</div>
-    <div id="basculadata">Esperando datos...</div>
-  </div>
-
-  <div id="luminosidad" class="sensor">
-    <div class="sensor-title">Luminosidad:</div>
-    <div id="lumdata">Esperando datos...</div>
-  </div>
-
-  <!-- Gráficas -->
-  <h2>📈 Histórico de Datos</h2>
-  <canvas id="tempChart"></canvas>
-  <canvas id="humChart"></canvas>
-  <canvas id="basculaChart"></canvas>
-  <canvas id="lumChart"></canvas>
 
   <script>
+    // Tabs JS
+    function openTab(evt, tabName) {
+      const tabcontent = document.getElementsByClassName('tabcontent');
+      for (let i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].classList.remove('active');
+      }
+      const tablinks = document.getElementsByClassName('tablinks');
+      for (let i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove('active');
+      }
+      document.getElementById(tabName).classList.add('active');
+      evt.currentTarget.classList.add('active');
+    }
+
+    // MQTT + Charts JS
     const client = mqtt.connect('wss://b6d522ef66224d36a55e598722e7338d.s1.eu.hivemq.cloud:8884/mqtt', {
       username: 'evaporador',
       password: 'Evaporador2025',
@@ -102,6 +168,11 @@
     let lastEspStatusTime = Date.now();
     const motorStatus = { motorX: 'OFF', motorY: 'OFF' };
     const maxDataPoints = 20;
+
+    // Motor status traffic light timeout logic
+    const MOTOR_TIMEOUT_MS = 10000;
+    let lastMotorStatusTime = Date.now();
+    let lastMotorStatus = 'desconectado';
 
     const tempChart = createChart('tempChart', 'Temperatura (°C)', 'red');
     const humChart = createChart('humChart', 'Humedad (%)', 'blue');
@@ -143,6 +214,35 @@
       }
     }
 
+    // Semáforo para el estado de los motores
+    function updateMotorStatus(status) {
+      const icon = document.getElementById('motor-status-icon');
+      const message = document.getElementById('motor-status-message');
+      if (status === 'online') {
+        icon.textContent = '🟢';
+        message.textContent = 'Motores: Enviando datos';
+      } else if (status === 'no_heartbeat') {
+        icon.textContent = '🟡';
+        message.textContent = 'Motores: Sin latido';
+      } else {
+        icon.textContent = '🔴';
+        message.textContent = 'Motores: Desconectado';
+      }
+    }
+
+    // Deshabilita o habilita los controles de grados y boton mover segun estado ON/OFF de cada motor
+    function updateMotorControls(motor, status) {
+      const gradosInput = document.getElementById(motor + 'grados');
+      const moverBtn = document.getElementById(motor + 'mover');
+      if (status === 'ON') {
+        gradosInput.disabled = false;
+        moverBtn.classList.remove('hide');
+      } else {
+        gradosInput.disabled = true;
+        moverBtn.classList.add('hide');
+      }
+    }
+
     client.on('connect', () => {
       updateBrokerStatus(true);
       const topics = [
@@ -153,17 +253,28 @@
         'evaporador/dht11/temperatura',
         'evaporador/dht11/humedad',
         'evaporador/bascula/mg',
-        'evaporador/luminosidad'
+        'evaporador/luminosidad',
+        'evaporador/Motorstatus'
       ];
       topics.forEach(topic => client.subscribe(topic));
     });
 
-    client.on('close', () => updateBrokerStatus(false));
-    client.on('offline', () => updateBrokerStatus(false));
-    client.on('error', () => updateBrokerStatus(false));
+    client.on('close', () => {
+      updateBrokerStatus(false);
+      updateMotorStatus('desconectado');
+    });
+    client.on('offline', () => {
+      updateBrokerStatus(false);
+      updateMotorStatus('desconectado');
+    });
+    client.on('error', () => {
+      updateBrokerStatus(false);
+      updateMotorStatus('desconectado');
+    });
 
     setInterval(() => {
       const now = Date.now();
+      // Broker / ESP32
       if (!client.connected) {
         updateBrokerStatus(false);
         updateEsp32Status('disconnected');
@@ -175,11 +286,31 @@
           updateEsp32Status('online');
         }
       }
+      // Motor status
+      if (!client.connected) {
+        updateMotorStatus('desconectado');
+      } else {
+        if (now - lastMotorStatusTime > MOTOR_TIMEOUT_MS) {
+          updateMotorStatus('no_heartbeat');
+        } else {
+          updateMotorStatus('online');
+        }
+      }
     }, 1000);
 
     client.on('message', (topic, message) => {
       if (topic === 'evaporador/status') {
         lastEspStatusTime = Date.now();
+      }
+
+      if (topic === 'evaporador/Motorstatus') {
+        lastMotorStatusTime = Date.now();
+        lastMotorStatus = message.toString().trim();
+        let status = 'online';
+        if (lastMotorStatus === 'no_heartbeat') status = 'no_heartbeat';
+        else if (lastMotorStatus === 'desconectado') status = 'desconectado';
+        updateMotorStatus(status);
+        return;
       }
 
       switch (topic) {
@@ -191,6 +322,7 @@
           document.getElementById(id + 'data').innerHTML =
             `Estado: ${motor.estatus}<br>Grados: ${motor.grados}<br>Hora: ${motor.hora}`;
           document.getElementById(id + 'grados').value = motor.grados;
+          updateMotorControls(id, motor.estatus); // Habilita/deshabilita controles según ON/OFF
           break;
         case 'evaporador/giroscopio/json':
           const giro = JSON.parse(message);
@@ -223,6 +355,9 @@
     function toggleMotor(motor) {
       const nuevoEstado = motorStatus[motor] === 'OFF' ? 'ON' : 'OFF';
       client.publish(`evaporador/${motor}/cmd`, nuevoEstado);
+      // Simular cambio inmediato de estado para UI responsiva (opcional, puede quitarse si solo espera el MQTT real)
+      motorStatus[motor] = nuevoEstado;
+      updateMotorControls(motor, nuevoEstado);
     }
 
     function sendGrados(motor) {
@@ -240,6 +375,12 @@
       }
       chart.update();
     }
+
+    // Inicializar controles según estado inicial (OFF)
+    document.addEventListener('DOMContentLoaded', function () {
+      updateMotorControls('motorX', 'OFF');
+      updateMotorControls('motorY', 'OFF');
+    });
   </script>
 </body>
 </html>
