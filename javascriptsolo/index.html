@@ -126,7 +126,7 @@
       <div class="control">
         <button id="motorXtoggle" onclick="toggleMotor('motorX')">ON/OFF</button>
         <input id="motorXgrados" type="number" value="0" />
-        <button id="motorXmover" onclick="sendGrados('motorX')">Mover a Grados</button>
+        <button id="motorXmover" onclick="sendGrados('motorX')" disabled>Mover a Grados</button>
       </div>
     </div>
   </div>
@@ -220,16 +220,18 @@
       }
     }
 
-    // Deshabilita o habilita los controles de grados y boton mover segun estado ON/OFF del motor X
+    // Habilita o deshabilita los controles de grados y el botón mover según estado ON/OFF del motor X
     function updateMotorControls(motor, status) {
       if (motor !== 'motorX') return;
       const gradosInput = document.getElementById(motor + 'grados');
       const moverBtn = document.getElementById(motor + 'mover');
       if (status === 'ON') {
         gradosInput.disabled = false;
+        moverBtn.disabled = false;
         moverBtn.classList.remove('hide');
       } else {
         gradosInput.disabled = true;
+        moverBtn.disabled = true;
         moverBtn.classList.add('hide');
       }
     }
@@ -311,7 +313,7 @@
           document.getElementById(id + 'data').innerHTML =
             `Estado: ${motor.estatus}<br>Grados: ${motor.grados}<br>Hora: ${motor.hora}`;
           document.getElementById(id + 'grados').value = motor.grados;
-          updateMotorControls(id, motor.estatus); // Habilita/deshabilita controles según ON/OFF
+          updateMotorControls(id, motor.estatus); // Solo aquí se maneja el estado de los controles
           break;
         case 'evaporador/giroscopio/json':
           const giro = JSON.parse(message);
@@ -345,15 +347,14 @@
       if (motor !== 'motorX') return;
       const nuevoEstado = motorStatus[motor] === 'OFF' ? 'ON' : 'OFF';
       client.publish(`evaporador/${motor}/cmd`, nuevoEstado);
-      // Simular cambio inmediato de estado para UI responsiva
-      motorStatus[motor] = nuevoEstado;
-      updateMotorControls(motor, nuevoEstado);
+      // No modificar controles aquí, solo esperar mensaje MQTT real
     }
 
     function sendGrados(motor) {
       if (motor !== 'motorX') return;
       const grados = parseInt(document.getElementById(motor + 'grados').value);
       client.publish(`evaporador/${motor}/cmd`, `GRADOS:${grados}`);
+      // No modificar controles aquí, solo esperar mensaje MQTT real
     }
 
     function addChartData(chart, value) {
