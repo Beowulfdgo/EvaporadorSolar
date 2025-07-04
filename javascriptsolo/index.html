@@ -110,16 +110,16 @@
 
   <!-- Contenido de la pestaña: Configuración -->
   <div id="configuracion" class="tabcontent">
-    <!-- Semáforo para el estado de los motores -->
+    <!-- Semáforo para el estado del motor X -->
     <div id="motor-status" class="sensor">
-      <div class="sensor-title">Estado de los Motores:</div>
+      <div class="sensor-title">Estado del Motor X:</div>
       <div>
         <span id="motor-status-icon" style="font-size: 24px;">🔴</span>
         <span id="motor-status-message">Desconectado</span>
       </div>
     </div>
 
-    <!-- Motores -->
+    <!-- Motor X -->
     <div id="motorX" class="sensor">
       <div class="sensor-title">Motor X:</div>
       <div id="motorXdata">Esperando datos...</div>
@@ -127,16 +127,6 @@
         <button id="motorXtoggle" onclick="toggleMotor('motorX')">ON/OFF</button>
         <input id="motorXgrados" type="number" value="0" />
         <button id="motorXmover" onclick="sendGrados('motorX')">Mover a Grados</button>
-      </div>
-    </div>
-
-    <div id="motorY" class="sensor">
-      <div class="sensor-title">Motor Y:</div>
-      <div id="motorYdata">Esperando datos...</div>
-      <div class="control">
-        <button id="motorYtoggle" onclick="toggleMotor('motorY')">ON/OFF</button>
-        <input id="motorYgrados" type="number" value="0" />
-        <button id="motorYmover" onclick="sendGrados('motorY')">Mover a Grados</button>
       </div>
     </div>
   </div>
@@ -166,7 +156,7 @@
 
     const ESP_TIMEOUT_MS = 10000;
     let lastEspStatusTime = Date.now();
-    const motorStatus = { motorX: 'OFF', motorY: 'OFF' };
+    const motorStatus = { motorX: 'OFF' };
     const maxDataPoints = 20;
 
     // Motor status traffic light timeout logic
@@ -214,24 +204,25 @@
       }
     }
 
-    // Semáforo para el estado de los motores
+    // Semáforo para el estado del motor X
     function updateMotorStatus(status) {
       const icon = document.getElementById('motor-status-icon');
       const message = document.getElementById('motor-status-message');
       if (status === 'online') {
         icon.textContent = '🟢';
-        message.textContent = 'Motores: Enviando datos';
+        message.textContent = 'Motor X: Enviando datos';
       } else if (status === 'no_heartbeat') {
         icon.textContent = '🟡';
-        message.textContent = 'Motores: Sin latido';
+        message.textContent = 'Motor X: Sin latido';
       } else {
         icon.textContent = '🔴';
-        message.textContent = 'Motores: Desconectado';
+        message.textContent = 'Motor X: Desconectado';
       }
     }
 
-    // Deshabilita o habilita los controles de grados y boton mover segun estado ON/OFF de cada motor
+    // Deshabilita o habilita los controles de grados y boton mover segun estado ON/OFF del motor X
     function updateMotorControls(motor, status) {
+      if (motor !== 'motorX') return;
       const gradosInput = document.getElementById(motor + 'grados');
       const moverBtn = document.getElementById(motor + 'mover');
       if (status === 'ON') {
@@ -248,7 +239,6 @@
       const topics = [
         'evaporador/status',
         'evaporador/motorX/json',
-        'evaporador/motorY/json',
         'evaporador/giroscopio/json',
         'evaporador/dht11/temperatura',
         'evaporador/dht11/humedad',
@@ -315,9 +305,8 @@
 
       switch (topic) {
         case 'evaporador/motorX/json':
-        case 'evaporador/motorY/json':
           const motor = JSON.parse(message);
-          const id = topic.includes('motorX') ? 'motorX' : 'motorY';
+          const id = 'motorX';
           motorStatus[id] = motor.estatus;
           document.getElementById(id + 'data').innerHTML =
             `Estado: ${motor.estatus}<br>Grados: ${motor.grados}<br>Hora: ${motor.hora}`;
@@ -353,14 +342,16 @@
     });
 
     function toggleMotor(motor) {
+      if (motor !== 'motorX') return;
       const nuevoEstado = motorStatus[motor] === 'OFF' ? 'ON' : 'OFF';
       client.publish(`evaporador/${motor}/cmd`, nuevoEstado);
-      // Simular cambio inmediato de estado para UI responsiva (opcional, puede quitarse si solo espera el MQTT real)
+      // Simular cambio inmediato de estado para UI responsiva
       motorStatus[motor] = nuevoEstado;
       updateMotorControls(motor, nuevoEstado);
     }
 
     function sendGrados(motor) {
+      if (motor !== 'motorX') return;
       const grados = parseInt(document.getElementById(motor + 'grados').value);
       client.publish(`evaporador/${motor}/cmd`, `GRADOS:${grados}`);
     }
@@ -379,7 +370,6 @@
     // Inicializar controles según estado inicial (OFF)
     document.addEventListener('DOMContentLoaded', function () {
       updateMotorControls('motorX', 'OFF');
-      updateMotorControls('motorY', 'OFF');
     });
   </script>
 </body>
