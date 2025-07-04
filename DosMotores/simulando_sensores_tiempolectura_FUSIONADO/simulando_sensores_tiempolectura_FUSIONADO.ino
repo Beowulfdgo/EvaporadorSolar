@@ -408,13 +408,13 @@ void loop() {
   }
  
 
-  leerTemperaturaHumedad(intervalDht);
-  leerGiroscopio(intervalGyro);
-  leerLuminosidad(intervalLux);
-  leerBascula(intervalBascula);
+//  leerTemperaturaHumedad(intervalDht);
+//  leerGiroscopio(intervalGyro);
+//  leerLuminosidad(intervalLux);
+//  leerBascula(intervalBascula);
   motorX(intervalMotorX);
   motorY(intervalMotorY);
-  leerGPS(intervalGps);
+//  leerGPS(intervalGps);
 }
 
 // <<<<< MODIFICADO: publishMessage solo publica por MQTT si no es modoLocal >>>>>
