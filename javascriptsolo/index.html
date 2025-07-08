@@ -139,6 +139,12 @@
         <button id="motorXmover" onclick="sendGrados('motorX')" disabled>Mover a Grados</button>
       </div>
     </div>
+
+    <!-- Giroscopio del Motor SOLO TEXTO -->
+    <div id="motor-gyro" class="sensor">
+      <div class="sensor-title">Giroscopio del Motor (MPU6050):</div>
+      <div id="motor-gyro-data">Esperando datos...</div>
+    </div>
   </div>
 
   <script>
@@ -235,7 +241,6 @@
       }
     }
 
-    // Habilita o deshabilita los controles de grados y el botón mover según estado ON/OFF del motor X
     function updateMotorControls(motor, status) {
       if (motor !== 'motorX') return;
       const gradosInput = document.getElementById(motor + 'grados');
@@ -251,10 +256,8 @@
       }
     }
 
-    // Variable para saber si el usuario ha editado el input de grados manualmente
     let userChangedMotorXGrados = false;
 
-    // Evento para marcar cuando el usuario cambia el input manualmente
     document.addEventListener('DOMContentLoaded', function () {
       updateMotorControls('motorX', 'OFF');
       const gradosInput = document.getElementById('motorXgrados');
@@ -264,7 +267,6 @@
       });
     });
 
-    // Variables GPS para mostrar ambos datos siempre
     window._lat = "...";
     window._lon = "...";
 
@@ -346,26 +348,35 @@
           motorStatus[id] = motor.estatus;
           document.getElementById(id + 'data').innerHTML =
             `Estado: ${motor.estatus}<br>Grados: ${motor.grados}<br>Hora: ${motor.hora}`;
-          // Ya no actualizamos el input de grados con el valor del ESP32
-          // Solo lo dejamos en 0 cuando el estado del motor cambia a ON
           if (motor.estatus === "ON" && !userChangedMotorXGrados) {
-            // Si el usuario no ha cambiado el valor manualmente, lo dejamos en cero
             document.getElementById(id + 'grados').value = "0";
           }
-          updateMotorControls(id, motor.estatus); // Solo aquí se maneja el estado de los controles
+          updateMotorControls(id, motor.estatus);
           break;
         }
         case 'evaporador/giroscopio/json':
-          // Nuevos datos de ángulos reales de ambos MPU6050
-          const giro = JSON.parse(message);
-          document.getElementById('giroscopio-angles').innerHTML =
-            `MPU1 - X: ${giro.MPU1_X?.toFixed(2)}°, Y: ${giro.MPU1_Y?.toFixed(2)}°<br>
-             MPU2 - X: ${giro.MPU2_X?.toFixed(2)}°, Y: ${giro.MPU2_Y?.toFixed(2)}°`;
-          // Histórico en gráficas
-          addChartData(giro1XChart, giro.MPU1_X);
-          addChartData(giro1YChart, giro.MPU1_Y);
-          addChartData(giro2XChart, giro.MPU2_X);
-          addChartData(giro2YChart, giro.MPU2_Y);
+          try {
+            const data = JSON.parse(message);
+            // Si el objeto tiene la estructura para el motor, lo mostramos en Configuración:
+            if (data.sensor === "mpu6050" && data.acelerometro && data.giroscopio) {
+              document.getElementById('motor-gyro-data').innerHTML =
+                `<b>Fecha:</b> ${data.fecha} <b>Hora:</b> ${data.hora}<br>
+                 <b>Acelerómetro</b> X: ${data.acelerometro.x?.toFixed(3)}, Y: ${data.acelerometro.y?.toFixed(3)}, Z: ${data.acelerometro.z?.toFixed(3)}<br>
+                 <b>Giroscopio</b> X: ${data.giroscopio.x?.toFixed(3)}, Y: ${data.giroscopio.y?.toFixed(3)}, Z: ${data.giroscopio.z?.toFixed(3)}`;
+            }
+            // Si es el formato viejo de ángulos, muéstralo en la pestaña de experimento como antes
+            if (typeof data.MPU1_X !== "undefined" && typeof data.MPU2_X !== "undefined") {
+              document.getElementById('giroscopio-angles').innerHTML =
+                `MPU1 - X: ${data.MPU1_X?.toFixed(2)}°, Y: ${data.MPU1_Y?.toFixed(2)}°<br>
+                 MPU2 - X: ${data.MPU2_X?.toFixed(2)}°, Y: ${data.MPU2_Y?.toFixed(2)}°`;
+              addChartData(giro1XChart, data.MPU1_X);
+              addChartData(giro1YChart, data.MPU1_Y);
+              addChartData(giro2XChart, data.MPU2_X);
+              addChartData(giro2YChart, data.MPU2_Y);
+            }
+          } catch (e) {
+            document.getElementById('motor-gyro-data').innerHTML = 'Error al procesar datos del giroscopio del motor.';
+          }
           break;
         case 'evaporador/dht11/temperatura':
           const temp = parseFloat(message);
@@ -402,19 +413,16 @@
       if (motor !== 'motorX') return;
       const nuevoEstado = motorStatus[motor] === 'OFF' ? 'ON' : 'OFF';
       client.publish(`evaporador/${motor}/cmd`, nuevoEstado);
-      // Cuando el motor se enciende, reseteamos el input a cero y el flag de usuario
       if (nuevoEstado === 'ON') {
         document.getElementById(motor + 'grados').value = "0";
         userChangedMotorXGrados = false;
       }
-      // No modificar controles aquí, solo esperar mensaje MQTT real
     }
 
     function sendGrados(motor) {
       if (motor !== 'motorX') return;
       const grados = parseInt(document.getElementById(motor + 'grados').value);
       client.publish(`evaporador/${motor}/cmd`, `GRADOS:${grados}`);
-      // Después de enviar, reseteamos el flag para que si hay ON/OFF vuelvan a cero
       userChangedMotorXGrados = false;
     }
 
