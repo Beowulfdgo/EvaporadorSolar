@@ -13,7 +13,6 @@
     .control { margin-top: 10px; }
     button, input { margin-right: 5px; padding: 5px 10px; }
     canvas { max-width: 100%; height: 300px; }
-    /* Tabs CSS */
     .tab {
       overflow: hidden;
       border-bottom: 1px solid #ccc;
@@ -47,16 +46,12 @@
 </head>
 <body>
   <h2>📡 Monitor y Control MQTT con Estado del Broker y ESP32</h2>
-
-  <!-- Pestañas -->
   <div class="tab">
     <button class="tablinks active" onclick="openTab(event, 'experimento')">Experimento</button>
     <button class="tablinks" onclick="openTab(event, 'configuracion')">Configuración</button>
   </div>
 
-  <!-- Contenido de la pestaña: Experimento -->
   <div id="experimento" class="tabcontent active">
-    <!-- Estado de conexión MQTT -->
     <div id="broker-status" class="sensor">
       <div class="sensor-title">Estado del Broker MQTT:</div>
       <div>
@@ -64,20 +59,12 @@
         <span id="broker-message">Desconectado</span>
       </div>
     </div>
-
-    <!-- Estado del ESP32 -->
     <div id="esp32-status" class="sensor">
       <div class="sensor-title">Estado del ESP32:</div>
       <div>
         <span id="esp32-icon" style="font-size: 24px;">🔴</span>
         <span id="esp32-message">Desconectado</span>
       </div>
-    </div>
-
-    <!-- Sensores -->
-    <div id="giroscopio" class="sensor">
-      <div class="sensor-title">Giroscopio (Ángulos reales):</div>
-      <div id="giroscopio-angles">Esperando datos...</div>
     </div>
 
     <div id="gps" class="sensor">
@@ -105,22 +92,18 @@
       <div id="lumdata">Esperando datos...</div>
     </div>
 
-    <!-- Gráficas -->
     <h2>📈 Histórico de Datos</h2>
     <canvas id="tempChart"></canvas>
     <canvas id="humChart"></canvas>
     <canvas id="basculaChart"></canvas>
     <canvas id="lumChart"></canvas>
-    <!-- Gráficas para ángulos giroscopio -->
     <canvas id="giro1XChart"></canvas>
     <canvas id="giro1YChart"></canvas>
     <canvas id="giro2XChart"></canvas>
     <canvas id="giro2YChart"></canvas>
   </div>
 
-  <!-- Contenido de la pestaña: Configuración -->
   <div id="configuracion" class="tabcontent">
-    <!-- Semáforo para el estado del motor X -->
     <div id="motor-status" class="sensor">
       <div class="sensor-title">Estado del Motor X:</div>
       <div>
@@ -128,8 +111,6 @@
         <span id="motor-status-message">Desconectado</span>
       </div>
     </div>
-
-    <!-- Motor X -->
     <div id="motorX" class="sensor">
       <div class="sensor-title">Motor X:</div>
       <div id="motorXdata">Esperando datos...</div>
@@ -139,8 +120,6 @@
         <button id="motorXmover" onclick="sendGrados('motorX')" disabled>Mover a Grados</button>
       </div>
     </div>
-
-    <!-- Giroscopio del Motor SOLO TEXTO -->
     <div id="motor-gyro" class="sensor">
       <div class="sensor-title">Giroscopio del Motor (MPU6050):</div>
       <div id="motor-gyro-data">Esperando datos...</div>
@@ -148,7 +127,6 @@
   </div>
 
   <script>
-    // Tabs JS
     function openTab(evt, tabName) {
       const tabcontent = document.getElementsByClassName('tabcontent');
       for (let i = 0; i < tabcontent.length; i++) {
@@ -162,7 +140,6 @@
       evt.currentTarget.classList.add('active');
     }
 
-    // MQTT + Charts JS
     const client = mqtt.connect('wss://b6d522ef66224d36a55e598722e7338d.s1.eu.hivemq.cloud:8884/mqtt', {
       username: 'evaporador',
       password: 'Evaporador2025',
@@ -175,16 +152,10 @@
     const motorStatus = { motorX: 'OFF' };
     const maxDataPoints = 20;
 
-    // Motor status traffic light timeout logic
-    const MOTOR_TIMEOUT_MS = 10000;
-    let lastMotorStatusTime = Date.now();
-    let lastMotorStatus = 'desconectado';
-
     const tempChart = createChart('tempChart', 'Temperatura (°C)', 'red');
     const humChart = createChart('humChart', 'Humedad (%)', 'blue');
     const basculaChart = createChart('basculaChart', 'Báscula (mg)', 'green');
     const lumChart = createChart('lumChart', 'Luminosidad', 'orange');
-    // Charts para ángulos giroscopio
     const giro1XChart = createChart('giro1XChart', 'MPU1 X (°)', 'purple');
     const giro1YChart = createChart('giro1YChart', 'MPU1 Y (°)', 'violet');
     const giro2XChart = createChart('giro2XChart', 'MPU2 X (°)', 'brown');
@@ -225,7 +196,6 @@
       }
     }
 
-    // Semáforo para el estado del motor X
     function updateMotorStatus(status) {
       const icon = document.getElementById('motor-status-icon');
       const message = document.getElementById('motor-status-message');
@@ -302,7 +272,6 @@
 
     setInterval(() => {
       const now = Date.now();
-      // Broker / ESP32
       if (!client.connected) {
         updateBrokerStatus(false);
         updateEsp32Status('disconnected');
@@ -312,16 +281,6 @@
           updateEsp32Status('no_heartbeat');
         } else {
           updateEsp32Status('online');
-        }
-      }
-      // Motor status
-      if (!client.connected) {
-        updateMotorStatus('desconectado');
-      } else {
-        if (now - lastMotorStatusTime > MOTOR_TIMEOUT_MS) {
-          updateMotorStatus('no_heartbeat');
-        } else {
-          updateMotorStatus('online');
         }
       }
     }, 1000);
@@ -357,22 +316,13 @@
         case 'evaporador/giroscopio/json':
           try {
             const data = JSON.parse(message);
-            // Si el objeto tiene la estructura para el motor, lo mostramos en Configuración:
+            // Mostrar datos del giroscopio y ángulos en la pestaña Configuración:
             if (data.sensor === "mpu6050" && data.acelerometro && data.giroscopio) {
               document.getElementById('motor-gyro-data').innerHTML =
                 `<b>Fecha:</b> ${data.fecha} <b>Hora:</b> ${data.hora}<br>
                  <b>Acelerómetro</b> X: ${data.acelerometro.x?.toFixed(3)}, Y: ${data.acelerometro.y?.toFixed(3)}, Z: ${data.acelerometro.z?.toFixed(3)}<br>
-                 <b>Giroscopio</b> X: ${data.giroscopio.x?.toFixed(3)}, Y: ${data.giroscopio.y?.toFixed(3)}, Z: ${data.giroscopio.z?.toFixed(3)}`;
-            }
-            // Si es el formato viejo de ángulos, muéstralo en la pestaña de experimento como antes
-            if (typeof data.MPU1_X !== "undefined" && typeof data.MPU2_X !== "undefined") {
-              document.getElementById('giroscopio-angles').innerHTML =
-                `MPU1 - X: ${data.MPU1_X?.toFixed(2)}°, Y: ${data.MPU1_Y?.toFixed(2)}°<br>
-                 MPU2 - X: ${data.MPU2_X?.toFixed(2)}°, Y: ${data.MPU2_Y?.toFixed(2)}°`;
-              addChartData(giro1XChart, data.MPU1_X);
-              addChartData(giro1YChart, data.MPU1_Y);
-              addChartData(giro2XChart, data.MPU2_X);
-              addChartData(giro2YChart, data.MPU2_Y);
+                 <b>Giroscopio</b> X: ${data.giroscopio.x?.toFixed(3)}, Y: ${data.giroscopio.y?.toFixed(3)}, Z: ${data.giroscopio.z?.toFixed(3)}<br>
+                 <b>Ángulos</b> Pitch: ${data.angulos?.pitch?.toFixed(2)}°, Roll: ${data.angulos?.roll?.toFixed(2)}°`;
             }
           } catch (e) {
             document.getElementById('motor-gyro-data').innerHTML = 'Error al procesar datos del giroscopio del motor.';
