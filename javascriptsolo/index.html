@@ -42,6 +42,34 @@
     .hide {
       display: none !important;
     }
+    #calib-log {
+      background: #f7f7f7;
+      border: 1px solid #bbb;
+      font-family: monospace;
+      font-size: 14px;
+      color: #222;
+      margin-top: 10px;
+      border-radius: 5px;
+      resize: none;
+    }
+    #calib-estado {
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #283593;
+    }
+    #calib-alert {
+      color: #b71c1c;
+      font-weight: bold;
+      padding: 3px 0;
+    }
+    #step-label {
+      margin-left: 8px;
+      margin-right: 2px;
+    }
+    #motor-calib input:disabled, #motor-calib button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -124,8 +152,19 @@
       <div class="sensor-title">Giroscopio del Motor (MPU6050):</div>
       <div id="motor-gyro-data">Esperando datos...</div>
     </div>
+    <div id="motor-calib" class="sensor">
+      <div class="sensor-title">Calibración del Motor X:</div>
+      <div id="calib-alert"></div>
+      <div id="calib-estado">Estado: Inactivo</div>
+      <div class="control">
+        <label id="step-label">Paso de calibración (°):</label>
+        <input id="calib-step" type="number" min="1" max="5" value="1" style="width:60px;" />
+        <button id="calib-btn" onclick="iniciarCalibracion()">Calibrar Motor</button>
+        <button id="cancelar-calib-btn" class="hide" onclick="cancelarCalibracion()">Cancelar Calibración</button>
+      </div>
+      <textarea id="calib-log" rows="12" style="width:100%;" readonly placeholder="Resultados de calibración..."></textarea>
+    </div>
   </div>
-
   <script>
     function openTab(evt, tabName) {
       const tabcontent = document.getElementsByClassName('tabcontent');
@@ -149,6 +188,8 @@
 
     const ESP_TIMEOUT_MS = 10000;
     let lastEspStatusTime = Date.now();
+    let lastMotorStatusTime = Date.now();
+    let lastMotorStatus = 'desconectado';
     const motorStatus = { motorX: 'OFF' };
     const maxDataPoints = 20;
 
@@ -199,15 +240,32 @@
     function updateMotorStatus(status) {
       const icon = document.getElementById('motor-status-icon');
       const message = document.getElementById('motor-status-message');
+      let isOff = false;
       if (status === 'online') {
         icon.textContent = '🟢';
         message.textContent = 'Motor X: Enviando datos';
+        isOff = false;
       } else if (status === 'no_heartbeat') {
         icon.textContent = '🟡';
         message.textContent = 'Motor X: Sin latido';
+        isOff = false;
       } else {
         icon.textContent = '🔴';
         message.textContent = 'Motor X: Desconectado';
+        isOff = true;
+      }
+      // Deshabilita controles de calibración si motor OFF o desconectado
+      setCalibControlsDisabled(isOff || motorStatus.motorX === 'OFF');
+    }
+
+    function setCalibControlsDisabled(disabled) {
+      document.getElementById('calib-step').disabled = disabled;
+      document.getElementById('calib-btn').disabled = disabled;
+      document.getElementById('cancelar-calib-btn').disabled = disabled;
+      if (disabled) {
+        document.getElementById('calib-alert').innerText = "Controles de calibración deshabilitados: motor OFF o desconectado.";
+      } else {
+        document.getElementById('calib-alert').innerText = "";
       }
     }
 
@@ -219,10 +277,12 @@
         gradosInput.disabled = false;
         moverBtn.disabled = false;
         moverBtn.classList.remove('hide');
+        setCalibControlsDisabled(false);
       } else {
         gradosInput.disabled = true;
         moverBtn.disabled = true;
         moverBtn.classList.add('hide');
+        setCalibControlsDisabled(true);
       }
     }
 
@@ -234,6 +294,13 @@
       gradosInput.value = "0";
       gradosInput.addEventListener('input', function () {
         userChangedMotorXGrados = true;
+      });
+      // Añade protección para calib-step (mín 1, máx 5)
+      document.getElementById('calib-step').addEventListener('change', function() {
+        let val = parseInt(this.value);
+        if (isNaN(val) || val < 1) val = 1;
+        if (val > 5) val = 5;
+        this.value = val;
       });
     });
 
@@ -285,6 +352,181 @@
       }
     }, 1000);
 
+    // ------- Estado de conexión del giroscopio -------
+    let giroscopioOnline = false;
+    let lastGyroTime = Date.now();
+    const GIRO_TIMEOUT = 10000; // ms
+    setInterval(() => {
+      if (Date.now() - lastGyroTime > GIRO_TIMEOUT) {
+        giroscopioOnline = false;
+      }
+      if (!giroscopioOnline && calibrando) {
+        mostrarAlertaCalib("¡Sin datos de giroscopio! Se cancela la calibración.");
+        cancelarCalibracion(true);
+      }
+    }, 1000);
+
+    // ------------------- Calibración del motor con giroscopio -------------------
+    let calibrando = false;
+    let comandosEnviados = 0;
+    let calibTimeout = null;
+    let pasosCalibracion = [];
+    let pasoActual = 0;
+    let registrosGiroscopio = [];
+    let isEsperandoGiro = false;
+    let ultimoLogCalibracion = "";
+
+    function mostrarAlertaCalib(msg) {
+      document.getElementById('calib-alert').innerText = msg || '';
+    }
+    function limpiarAlertaCalib() {
+      mostrarAlertaCalib("");
+    }
+
+    function getCalibStep() {
+      let step = parseInt(document.getElementById('calib-step').value);
+      if (isNaN(step) || step < 1) step = 1;
+      if (step > 5) step = 5;
+      document.getElementById('calib-step').value = step;
+      return step;
+    }
+
+    function generarPasosCalibracion() {
+      // Empieza en 1 hasta 15, y de -1 hasta -15, paso configurable 1-5
+      let step = getCalibStep();
+      let pasos = [];
+      for(let g=1; g<=15; g+=step) pasos.push(g);
+      for(let g=-1; g>=-15; g-=step) pasos.push(g);
+      return pasos;
+    }
+
+    function limpiarValoresCalibracion() {
+      registroHistoricoCalibracion = [];
+      pasosCalibracion = [];
+      pasoActual = 0;
+      comandosEnviados = 0;
+      registrosGiroscopio = [];
+      isEsperandoGiro = false;
+      document.getElementById('calib-log').value = "";
+      document.getElementById('calib-estado').innerText = "Estado: Inactivo";
+      limpiarAlertaCalib();
+    }
+
+    // Mantiene el histórico de TODOS los logs de calibración
+    let registroHistoricoCalibracion = [];
+
+    function iniciarCalibracion() {
+      if (calibrando) return;
+      if (motorStatus.motorX !== 'ON') {
+        mostrarAlertaCalib("No se puede calibrar: motor OFF.");
+        return;
+      }
+      if (!giroscopioOnline) {
+        mostrarAlertaCalib("No hay conexión con el giroscopio. No se puede calibrar.");
+        return;
+      }
+      // Limpiar valores de calibración y limpiar visualización
+      limpiarValoresCalibracion();
+      calibrando = true;
+      pasosCalibracion = generarPasosCalibracion();
+      pasoActual = 0;
+      comandosEnviados = 0;
+      registrosGiroscopio = [];
+      isEsperandoGiro = false;
+      document.getElementById('calib-btn').disabled = true;
+      document.getElementById('cancelar-calib-btn').classList.remove('hide');
+      document.getElementById('calib-estado').innerText = "Estado: Calibrando...";
+      setTimeout(calibLoop, 500); // pequeño delay para que usuario vea el mensaje
+    }
+
+    function calibLoop() {
+      if (!calibrando) return;
+      if (pasoActual < pasosCalibracion.length) {
+        const grados = pasosCalibracion[pasoActual];
+        document.getElementById('calib-estado').innerText = `Estado: Calibrando... Moviendo a ${grados}° (paso ${pasoActual+1}/${pasosCalibracion.length})`;
+        isEsperandoGiro = true;
+        client.publish('evaporador/motorX/cmd', `GRADOS:${grados}`);
+        comandosEnviados++;
+        calibTimeout = setTimeout(() => {
+          if (isEsperandoGiro) {
+            registrosGiroscopio.push({grados_teorico: grados, dato: null, error: "Sin dato de giroscopio"});
+            isEsperandoGiro = false;
+            mostrarAlertaCalib("No se recibió dato del giroscopio para el paso " + grados + "°.");
+            cancelarCalibracion(true);
+          }
+        }, 7000);
+      } else {
+        finalizarCalibracion();
+      }
+    }
+
+    function recolectarDatoGiroscopio(data) {
+      lastGyroTime = Date.now();
+      if (!giroscopioOnline) giroscopioOnline = true;
+      // Solo registrar si estamos esperando
+      if (calibrando && isEsperandoGiro) {
+        const grados_teorico = pasosCalibracion[pasoActual];
+        registrosGiroscopio.push({
+          grados_teorico: grados_teorico,
+          pitch: data.angulos?.pitch ?? null,
+          roll: data.angulos?.roll ?? null,
+          tiempo: `${data.fecha} ${data.hora}`
+        });
+        isEsperandoGiro = false;
+        clearTimeout(calibTimeout);
+        pasoActual++;
+        setTimeout(calibLoop, 300); // pequeño delay para que el motor se estabilice
+      }
+    }
+
+    function mostrarHistoricoCalibracion() {
+      let log = "";
+      registroHistoricoCalibracion.forEach((hist, idx) => {
+        log += `----- Calibración #${idx+1} -----\n` + hist + "\n";
+      });
+      document.getElementById('calib-log').value = log;
+      ultimoLogCalibracion = log;
+    }
+
+    function cancelarCalibracion(silencioso) {
+      calibrando = false;
+      if (calibTimeout) clearTimeout(calibTimeout);
+      document.getElementById('calib-estado').innerText = "Estado: Calibración Cancelada";
+      document.getElementById('calib-btn').disabled = false;
+      document.getElementById('cancelar-calib-btn').classList.add('hide');
+      isEsperandoGiro = false;
+      // Siempre muestra el histórico aunque se cancele
+      let log = `Calibración cancelada.\nComandos enviados: ${comandosEnviados}\n\nResultados:\n`;
+      registrosGiroscopio.forEach((r, i) => {
+        if (r.error) {
+          log += `Paso ${i+1}: Teórico ${r.grados_teorico}° → ERROR: ${r.error}\n`;
+        } else {
+          log += `Paso ${i+1}: Teórico ${r.grados_teorico}° → Pitch: ${r.pitch?.toFixed(1)}°, Roll: ${r.roll?.toFixed(1)}° [${r.tiempo}]\n`;
+        }
+      });
+      registroHistoricoCalibracion.push(log);
+      mostrarHistoricoCalibracion();
+    }
+
+    function finalizarCalibracion() {
+      calibrando = false;
+      limpiarAlertaCalib();
+      document.getElementById('calib-estado').innerText = "Estado: Calibración Finalizada";
+      document.getElementById('calib-btn').disabled = false;
+      document.getElementById('cancelar-calib-btn').classList.add('hide');
+      let log = `Calibración completada.\nComandos enviados: ${comandosEnviados}\n\nResultados:\n`;
+      registrosGiroscopio.forEach((r, i) => {
+        if (r.error) {
+          log += `Paso ${i+1}: Teórico ${r.grados_teorico}° → ERROR: ${r.error}\n`;
+        } else {
+          log += `Paso ${i+1}: Teórico ${r.grados_teorico}° → Pitch: ${r.pitch?.toFixed(1)}°, Roll: ${r.roll?.toFixed(1)}° [${r.tiempo}]\n`;
+        }
+      });
+      registroHistoricoCalibracion.push(log);
+      mostrarHistoricoCalibracion();
+      isEsperandoGiro = false;
+    }
+
     client.on('message', (topic, message) => {
       if (topic === 'evaporador/status') {
         lastEspStatusTime = Date.now();
@@ -316,13 +558,13 @@
         case 'evaporador/giroscopio/json':
           try {
             const data = JSON.parse(message);
-            // Mostrar datos del giroscopio y ángulos en la pestaña Configuración:
             if (data.sensor === "mpu6050" && data.acelerometro && data.giroscopio) {
               document.getElementById('motor-gyro-data').innerHTML =
                 `<b>Fecha:</b> ${data.fecha} <b>Hora:</b> ${data.hora}<br>
                  <b>Acelerómetro</b> X: ${data.acelerometro.x?.toFixed(3)}, Y: ${data.acelerometro.y?.toFixed(3)}, Z: ${data.acelerometro.z?.toFixed(3)}<br>
                  <b>Giroscopio</b> X: ${data.giroscopio.x?.toFixed(3)}, Y: ${data.giroscopio.y?.toFixed(3)}, Z: ${data.giroscopio.z?.toFixed(3)}<br>
                  <b>Ángulos</b> Pitch: ${data.angulos?.pitch?.toFixed(2)}°, Roll: ${data.angulos?.roll?.toFixed(2)}°`;
+              recolectarDatoGiroscopio(data);
             }
           } catch (e) {
             document.getElementById('motor-gyro-data').innerHTML = 'Error al procesar datos del giroscopio del motor.';
