@@ -4,14 +4,16 @@
 #include <SPI.h>
 #include <ArduinoJson.h>
 #include <time.h>
-//-- Enviar datos desde mmqt hive web
+#include <Wire.h>
+#include <MPU6050.h>
+#include <math.h>
 
 // === Pines y Configuración Motores ===
 #define DIR_LAT 14
 #define STEP_LAT 27
 #define DIR_LON 26
 #define STEP_LON 25
-
+void publishMessage(const char* topic, String payload, boolean retained);
 const float pasosPorRevolucionMicrostepping = 200.0 * 32.0;
 const float gradosPorPaso = 360.0 / pasosPorRevolucionMicrostepping;
 
@@ -26,10 +28,7 @@ void moverMotor(int dirPin, int stepPin, float grados) {
   }
 }
 
-
-//--Topic evaporador/motorX/cmd GRADOS:120
-//--Topci evaporador/motorX/cmd ON
-// ==== WiFi y MQTT settings
+//==== WiFi y MQTT settings ====
 const char* ssid = "Informatica2024";
 const char* password = "iinf2024";
 const char* mqtt_server = "b6d522ef66224d36a55e598722e7338d.s1.eu.hivemq.cloud";
@@ -41,7 +40,6 @@ const int mqtt_port = 8883;
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
-// <<<<< AGREGAR VARIABLE DE MODO LOCAL >>>>>
 bool modoLocal = false;
 
 static const char *root_ca PROGMEM = R"EOF(
@@ -92,8 +90,12 @@ const char* topic_bascula = "evaporador/bascula/mg";
 const char* topic_motorX_cmd = "evaporador/motorX/cmd";
 const char* topic_motorY_cmd = "evaporador/motorY/cmd";
 
+// ==== time for each sensor
+unsigned long prevDht = 0, prevGyro = 0, prevLux = 0, prevBascula = 0, prevMotorX = 0, prevMotorY = 0, prevGps = 0;
+unsigned long intervalDht = 5000, intervalGyro = 6000, intervalLux = 7000, intervalBascula = 8000, intervalMotorX = 9000, intervalMotorY = 10000, intervalGps = 11000;
+
 unsigned long lastHeartbeat = 0;
-const unsigned long heartbeatInterval = 5000;  //Validacion del esp32-Sensores 5 segundos
+const unsigned long heartbeatInterval = 5000;
 
 float last_gps_lat = 19.4326;
 float last_gps_lon = -99.1332;
@@ -102,9 +104,8 @@ String motorY_status = "OFF";
 int motorX_grados = 0;
 int motorY_grados = 0;
 
-// ==== time for each sensor
-unsigned long prevDht = 0, prevGyro = 0, prevLux = 0, prevBascula = 0, prevMotorX = 0, prevMotorY = 0, prevGps = 0;
-unsigned long intervalDht = 5000, intervalGyro = 6000, intervalLux = 7000, intervalBascula = 8000, intervalMotorX = 9000, intervalMotorY = 10000, intervalGps = 11000; // ms
+// ========== MPU6050 ==========
+MPU6050 mpu;
 
 // Obtener la fecha y hora en formato ISO 8601
 String getDateTimeISO() {
@@ -115,14 +116,11 @@ String getDateTimeISO() {
   return String(buf);
 }
 
-// ---- SENSORES Y ACTUADORES EN FUNCIONES ----
-
 void leerTemperaturaHumedad(unsigned long interval) {
   static unsigned long last = 0;
   if (millis() - last < interval) return;
   last = millis();
 
-  // Simulación
   float temp = random(200, 350) / 10.0;
   float hum = random(300, 700) / 10.0;
 
@@ -133,7 +131,7 @@ void leerTemperaturaHumedad(unsigned long interval) {
   publishMessage(topic_dht11_temp, String(temp,1), true);
   publishMessage(topic_dht11_hum, String(hum,1), true);
 
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   doc["sensor"] = "dht11";
   doc["temperatura"] = temp;
   doc["humedad"] = hum;
@@ -146,25 +144,50 @@ void leerTemperaturaHumedad(unsigned long interval) {
   Serial.println(output);
 }
 
-void leerGiroscopio(unsigned long interval) {
+// -------- INTEGRACIÓN MPU6050 --------
+void calcularAngulosAcelerometro(float ax, float ay, float az, float &pitch, float &roll) {
+  pitch = atan2(-ax, sqrt(ay * ay + az * az)) * 180.0 / PI;
+  roll  = atan2(ay, az) * 180.0 / PI;
+}
+
+void leerGiroscopioMPU(unsigned long interval) {
   static unsigned long last = 0;
   if (millis() - last < interval) return;
   last = millis();
 
-  float gyro_lat = random(-9000, 9000) / 100.0;
-  float gyro_lon = random(-18000, 18000) / 100.0;
+  int16_t ax, ay, az, gx, gy, gz;
+  mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+
+  float accel_x = ax / 16384.0;
+  float accel_y = ay / 16384.0;
+  float accel_z = az / 16384.0;
+  float gyro_x  = gx / 131.0;
+  float gyro_y  = gy / 131.0;
+  float gyro_z  = gz / 131.0;
+
+  float pitch, roll;
+  calcularAngulosAcelerometro(accel_x, accel_y, accel_z, pitch, roll);
 
   String fechaHora = getDateTimeISO();
   String fecha = fechaHora.substring(0,10);
   String hora  = fechaHora.substring(11,19);
 
-  publishMessage(topic_gyro_lat, String(gyro_lat,2), true);
-  publishMessage(topic_gyro_lon, String(gyro_lon,2), true);
+  JsonDocument doc;
+  doc["sensor"] = "mpu6050";
+  JsonObject accel = doc["acelerometro"].to<JsonObject>();
+  accel["x"] = accel_x;
+  accel["y"] = accel_y;
+  accel["z"] = accel_z;
 
-  StaticJsonDocument<256> doc;
-  doc["sensor"] = "giroscopio";
-  doc["latitud"] = gyro_lat;
-  doc["longitud"] = gyro_lon;
+  JsonObject gyro = doc["giroscopio"].to<JsonObject>();
+  gyro["x"] = gyro_x;
+  gyro["y"] = gyro_y;
+  gyro["z"] = gyro_z;
+
+  JsonObject ang = doc["angulos"].to<JsonObject>();
+  ang["pitch"] = pitch;
+  ang["roll"] = roll;
+
   doc["fecha"] = fecha;
   doc["hora"] = hora;
 
@@ -187,7 +210,7 @@ void leerLuminosidad(unsigned long interval) {
 
   publishMessage(topic_lux, String(lux), true);
 
-  StaticJsonDocument<128> doc;
+  JsonDocument doc;
   doc["sensor"] = "luminosidad";
   doc["lux"] = lux;
   doc["fecha"] = fecha;
@@ -212,7 +235,7 @@ void leerBascula(unsigned long interval) {
 
   publishMessage(topic_bascula, String(bascula), true);
 
-  StaticJsonDocument<128> doc;
+  JsonDocument doc;
   doc["sensor"] = "bascula";
   doc["peso_mg"] = bascula;
   doc["fecha"] = fecha;
@@ -233,7 +256,7 @@ void motorX(unsigned long interval) {
   String fecha = fechaHora.substring(0,10);
   String hora  = fechaHora.substring(11,19);
 
-  StaticJsonDocument<128> doc;
+  JsonDocument doc;
   doc["actuador"] = "motorX";
   doc["estatus"] = motorX_status;
   doc["grados"] = motorX_grados;
@@ -255,7 +278,7 @@ void motorY(unsigned long interval) {
   String fecha = fechaHora.substring(0,10);
   String hora  = fechaHora.substring(11,19);
 
-  StaticJsonDocument<128> doc;
+  JsonDocument doc;
   doc["actuador"] = "motorY";
   doc["estatus"] = motorY_status;
   doc["grados"] = motorY_grados;
@@ -283,7 +306,7 @@ void leerGPS(unsigned long interval) {
   publishMessage(topic_gps_lat, String(last_gps_lat,6), true);
   publishMessage(topic_gps_lon, String(last_gps_lon,6), true);
 
-  StaticJsonDocument<128> doc;
+  JsonDocument doc;
   doc["sensor"] = "gps";
   doc["latitud"] = last_gps_lat;
   doc["longitud"] = last_gps_lon;
@@ -296,30 +319,131 @@ void leerGPS(unsigned long interval) {
   Serial.println(output);
 }
 
+// ==== MQTT Calibración MotorX ====
+// Topics nuevos
+String calib_log_topic = "evaporador/motorX/caliblog";
+String calib_status_topic = "evaporador/motorX/calibstatus";
+String calib_result_topic = "evaporador/motorX/calibresult";
+
+bool calibrandoMotorX = false;
+int calib_paso = 1;      // grados (1 a 5)
+int calib_ini = 1;       // grados
+int calib_fin = 15;      // grados
+unsigned long calib_delay = 1500; // ms espera entre comandos
+
+void publicarCalibLog(const String& msg) {
+  publishMessage(calib_log_topic.c_str(), msg, false);
+}
+
+void publicarCalibStatus(const String& msg) {
+  publishMessage(calib_status_topic.c_str(), msg, false);
+}
+
+void publicarCalibResult(const String& payload) {
+  publishMessage(calib_result_topic.c_str(), payload, false);
+}
+
+void calibrarMotorX(int paso = 1, int rango_ini = 1, int rango_fin = 15) {
+  if (calibrandoMotorX) {
+    publicarCalibLog("Ya hay una calibración en curso.");
+    return;
+  }
+  calibrandoMotorX = true;
+  publicarCalibStatus("iniciando");
+
+  int pasos[32];
+  int idx = 0;
+  for(int g = rango_ini; g <= rango_fin; g += paso) pasos[idx++] = g;
+  for(int g = -rango_ini; g >= -rango_fin; g -= paso) pasos[idx++] = g;
+  int pasosTotales = idx;
+
+  JsonDocument logJson;
+  JsonArray arr = logJson["calibracion"].to<JsonArray>();
+
+  publicarCalibLog("Calibración Motor X: paso=" + String(paso) + "°; rango: " + String(rango_ini) + "° a " + String(rango_fin) + "°");
+
+  for(int i=0; i<pasosTotales && calibrandoMotorX; i++) {
+    int grados = pasos[i];
+    publicarCalibLog("[Paso " + String(i+1) + "/" + String(pasosTotales) + "] Moviendo a " + String(grados) + " grados...");
+    moverMotor(DIR_LON, STEP_LON, grados);
+    publicarCalibLog("Esperando medida de sensor...");
+    delay(calib_delay);
+
+    int16_t ax, ay, az, gx, gy, gz;
+    mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    float accel_x = ax / 16384.0;
+    float accel_y = ay / 16384.0;
+    float accel_z = az / 16384.0;
+    float pitch, roll;
+    calcularAngulosAcelerometro(accel_x, accel_y, accel_z, pitch, roll);
+
+    JsonDocument pasoJson;
+    pasoJson["paso"] = i+1;
+    pasoJson["grados_teorico"] = grados;
+    pasoJson["pitch"] = pitch;
+    pasoJson["roll"] = roll;
+    String pasoStr;
+    serializeJson(pasoJson, pasoStr);
+    publicarCalibLog(pasoStr);
+
+    arr.add(pasoJson);
+  }
+
+  if (calibrandoMotorX) {
+    publicarCalibStatus("finalizado");
+    String resumen;
+    serializeJson(logJson, resumen);
+    publicarCalibResult(resumen);
+    publicarCalibLog("Calibración terminada.");
+  } else {
+    publicarCalibStatus("cancelado");
+    publicarCalibLog("Calibración cancelada por usuario.");
+  }
+  calibrandoMotorX = false;
+}
+
+void cancelarCalibracionMotorX() {
+  calibrandoMotorX = false;
+  publicarCalibStatus("cancelado");
+  publicarCalibLog("Calibración cancelada por solicitud externa.");
+}
+
+void publishMessage(const char* topic, String payload, boolean retained) {
+  if (!modoLocal && client.publish(topic, payload.c_str(), retained)) {
+    Serial.println("Mensaje publicado [" + String(topic) + "]: " + payload);
+  }
+}
+
 // ========== MQTT Y WIFI ==========
 
 void callback(char* topic, byte* payload, unsigned int length) {
   String incoming = "";
   for (int i = 0; i < length; i++) incoming += (char)payload[i];
+
   if (String(topic) == topic_motorX_cmd) {
     if (incoming == "ON" || incoming == "OFF") motorX_status = incoming;
-    if (incoming.startsWith("GRADOS:"))
-    {
-       motorX_grados = incoming.substring(7).toInt(); 
+    if (incoming.startsWith("GRADOS:")) {
+      motorX_grados = incoming.substring(7).toInt();
       moverMotor(DIR_LON, STEP_LON, motorX_grados);
+    }
+    if (incoming.startsWith("CALIB:")) {
+      int paso = 1, ini = 1, fin = 15;
+      sscanf(incoming.c_str(), "CALIB:%d,%d,%d", &paso, &ini, &fin);
+      publicarCalibLog("Recibido comando de calibración. Paso=" + String(paso) + " ini=" + String(ini) + " fin=" + String(fin));
+      calibrarMotorX(paso, ini, fin);
+    }
+    if (incoming == "CANCELAR_CALIB") {
+      cancelarCalibracionMotorX();
     }
   }
   if (String(topic) == topic_motorY_cmd) {
     if (incoming == "ON" || incoming == "OFF") motorY_status = incoming;
-    if (incoming.startsWith("GRADOS:")) 
-    {
+    if (incoming.startsWith("GRADOS:")) {
       motorY_grados = incoming.substring(7).toInt();
       moverMotor(DIR_LAT, STEP_LAT, motorY_grados);
     }
   }
 }
-
-// <<<<< MODIFICADO: setup() SOLO 5 INTENTOS WIFI >>>>>
 
 void setup() {
   pinMode(DIR_LAT, OUTPUT);
@@ -328,6 +452,15 @@ void setup() {
   pinMode(STEP_LON, OUTPUT);
 
   Serial.begin(115200);
+
+  Wire.begin();
+  mpu.initialize();
+  if (mpu.testConnection()) {
+    Serial.println("MPU6050 conectado correctamente");
+  } else {
+    Serial.println("MPU6050 no detectado");
+  }
+
   pinMode(LED_WIFI, OUTPUT);
   Serial.print("\nConectando a ");
   Serial.println(ssid);
@@ -336,7 +469,6 @@ void setup() {
   WiFi.begin(ssid, password);
   client.setCallback(callback);
 
-  // Intentar conectar solo 15 veces
   int intentosWifi = 0;
   while (WiFi.status() != WL_CONNECTED && intentosWifi < 15) {
     digitalWrite(LED_WIFI, !digitalRead(LED_WIFI));
@@ -350,8 +482,7 @@ void setup() {
     Serial.println("\nWiFi conectado\nIP address: ");
     Serial.println(WiFi.localIP());
 
-    // Configura hora vía NTP
-    configTime(-6 * 3600, 0, "pool.ntp.org", "time.nist.gov"); // GMT-6
+    configTime(-6 * 3600, 0, "pool.ntp.org", "time.nist.gov");
     while(time(nullptr) < 100000){delay(100);Serial.print("*");}
 
     espClient.setCACert(root_ca);
@@ -364,9 +495,8 @@ void setup() {
   }
 }
 
-// <<<<< MODIFICADO: reconnect() SOLO 5 INTENTOS MQTT >>>>>
 void reconnect() {
-  if (modoLocal) return; // No intentar si está en modo local
+  if (modoLocal) return;
 
   int intentosMqtt = 0;
   while (!client.connected() && intentosMqtt < 5) {
@@ -392,34 +522,20 @@ void reconnect() {
   }
 }
 
-// <<<<< MODIFICADO: loop() respeta modoLocal >>>>>
 void loop() {
   if (!modoLocal) {
     if (!client.connected()) reconnect();
-    if (!modoLocal) client.loop(); // Si cambia a modoLocal por fallo MQTT, no llamar client.loop()
+    if (!modoLocal) client.loop();
   }
 
-  //status de evaporador (latido)
   unsigned long now = millis();
   if (now - lastHeartbeat > heartbeatInterval) {
     lastHeartbeat = now;
     client.publish("evaporador/Motorstatus", "online");
     Serial.println("Motorstatus heartbeat enviado");
   }
- 
 
-//  leerTemperaturaHumedad(intervalDht);
-//  leerGiroscopio(intervalGyro);
-//  leerLuminosidad(intervalLux);
-//  leerBascula(intervalBascula);
+  leerGiroscopioMPU(intervalGyro);
   motorX(intervalMotorX);
   motorY(intervalMotorY);
-//  leerGPS(intervalGps);
-}
-
-// <<<<< MODIFICADO: publishMessage solo publica por MQTT si no es modoLocal >>>>>
-void publishMessage(const char* topic, String payload, boolean retained) {
-  if (!modoLocal && client.publish(topic, payload.c_str(), retained)) {
-    Serial.println("Mensaje publicado [" + String(topic) + "]: " + payload);
-  }
 }
