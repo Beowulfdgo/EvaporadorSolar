@@ -1,3 +1,11 @@
+# --- PlatformIO ---
+# Directorio de archivos temporales y de construcción de PlatformIO
+.pio/
+# Archivos de entorno (credenciales, configuraciones locales)
+.env
+.env.*
+# Archivos de configuración específicos de PlatformIO (opcional)
+# platformio.ini    # Si NO quieres versionar tu configuración, descomenta esta línea.
 # Ignorar archivos generados por el IDE de Arduino
 *.elf
 *.hex
