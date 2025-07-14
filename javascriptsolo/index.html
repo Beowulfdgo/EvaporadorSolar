@@ -164,6 +164,22 @@
       </div>
       <textarea id="calib-log" rows="12" style="width:100%;" readonly placeholder="Resultados de calibración..."></textarea>
     </div>
+    <!-- Calibración de Báscula -->
+<div id="bascula-calib" class="sensor">
+  <div class="sensor-title">Calibración de Báscula:</div>
+  <div class="control">
+    <label for="bascula-lecturas"># Lecturas:</label>
+    <input id="bascula-lecturas" type="number" min="10" max="100" step="1" value="10" style="width:60px;">
+    <button id="bascula-calib-btn" onclick="iniciarCalibracionBascula()">Calibrar Báscula</button>
+  </div>
+  <div id="bascula-calib-status" style="margin-top:8px;">
+    <b>Estatus:</b> <span id="bascula-calib-estado">Inactivo</span><br>
+    <b>Último resultado:</b>
+    <pre id="bascula-calib-resultado" style="font-size:14px"></pre>
+  </div>
+  <!-- AGREGA AQUÍ LA SIGUIENTE LÍNEA -->
+  <textarea id="calib-log-basc" rows="12" style="width:100%;" readonly placeholder="Resultados de calibración..."></textarea>
+</div>
   </div>
   <script>
     function openTab(evt, tabName) {
@@ -319,7 +335,8 @@
         'evaporador/luminosidad',
         'evaporador/Motorstatus',
         'evaporador/gps/latitud',
-        'evaporador/gps/longitud'
+        'evaporador/gps/longitud',
+        'evaporador/bascula/calibracion/estatus'
       ];
       topics.forEach(topic => client.subscribe(topic));
     });
@@ -628,6 +645,63 @@
       }
       chart.update();
     }
+   // ------ Calibración de Báscula (con Log en textarea) ------
+let logCalibracionBascula = ""; // Lleva el historial de eventos
+
+function validarLecturasBascula(val) {
+  let n = parseInt(val);
+  if (n === 10) return 10;
+  if (n >= 20 && n <= 30) return n;
+  if (n >= 50 && n <= 100) return n;
+  return 10; // default seguro
+}
+
+function iniciarCalibracionBascula() {
+  const input = document.getElementById('bascula-lecturas');
+  const btn = document.getElementById('bascula-calib-btn');
+  let lecturas = validarLecturasBascula(input.value);
+  input.value = lecturas;
+  btn.disabled = true;
+  // Limpiar el log del textarea al iniciar calibración:
+  logCalibracionBascula = "";
+  document.getElementById('calib-log-basc').value = "";
+  const mensaje = `[${new Date().toLocaleTimeString()}] → Iniciando calibración con ${lecturas} lecturas...\n`;
+  logCalibracionBascula += mensaje;
+  document.getElementById('calib-log-basc').value = logCalibracionBascula;
+  document.getElementById('bascula-calib-estado').innerText = "Enviando solicitud...";
+  client.publish('evaporador/bascula/calibracion', String(lecturas));
+}
+
+// Suscribirse al topic solo una vez tras conectar (ya debe estar en tu código)
+client.subscribe && client.subscribe('evaporador/bascula/calibracion/estatus');
+
+// En tu client.on('message', ...) agrega/modifica así:
+client.on('message', (topic, message) => {
+  if (topic === 'evaporador/bascula/calibracion/estatus') {
+    let estatus = "Desconocido";
+    let info = "";
+    let logLinea = `[${new Date().toLocaleTimeString()}] ← `;
+    try {
+      const data = JSON.parse(message);
+      estatus = data.status || "Sin status";
+      info =
+        `Error: ${data.error}\n` +
+        `Calibrada: ${data.calibrada ? "Sí" : "No"}`;
+      logLinea += `Status: ${estatus}, Error: ${data.error}, Calibrada: ${data.calibrada ? "Sí" : "No"}\n`;
+    } catch (e) {
+      info = "Error al parsear: " + message;
+      logLinea += "Error al parsear respuesta\n";
+    }
+    document.getElementById('bascula-calib-estado').innerText = estatus;
+    document.getElementById('bascula-calib-resultado').innerText = info;
+    document.getElementById('bascula-calib-btn').disabled = (estatus === "calibrando");
+    // Actualiza el log completo
+    logCalibracionBascula += logLinea;
+    document.getElementById('calib-log-basc').value = logCalibracionBascula;
+    document.getElementById('calib-log-basc').scrollTop = document.getElementById('calib-log-basc').scrollHeight;
+  }
+  // ...el resto de tus topics existentes...
+});
   </script>
 </body>
 </html>
