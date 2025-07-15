@@ -336,7 +336,8 @@
         'evaporador/Motorstatus',
         'evaporador/gps/latitud',
         'evaporador/gps/longitud',
-        'evaporador/bascula/calibracion/estatus'
+        'evaporador/bascula/calibracion/estatus',
+        'evaporador/bascula/diagnostico/resultado'
       ];
       topics.forEach(topic => client.subscribe(topic));
     });
@@ -676,32 +677,64 @@ function iniciarCalibracionBascula() {
 client.subscribe && client.subscribe('evaporador/bascula/calibracion/estatus');
 
 // En tu client.on('message', ...) agrega/modifica así:
-client.on('message', (topic, message) => {
-  if (topic === 'evaporador/bascula/calibracion/estatus') {
-    let estatus = "Desconocido";
-    let info = "";
-    let logLinea = `[${new Date().toLocaleTimeString()}] ← `;
-    try {
-      const data = JSON.parse(message);
-      estatus = data.status || "Sin status";
-      info =
-        `Error: ${data.error}\n` +
-        `Calibrada: ${data.calibrada ? "Sí" : "No"}`;
-      logLinea += `Status: ${estatus}, Error: ${data.error}, Calibrada: ${data.calibrada ? "Sí" : "No"}\n`;
-    } catch (e) {
-      info = "Error al parsear: " + message;
-      logLinea += "Error al parsear respuesta\n";
-    }
-    document.getElementById('bascula-calib-estado').innerText = estatus;
-    document.getElementById('bascula-calib-resultado').innerText = info;
-    document.getElementById('bascula-calib-btn').disabled = (estatus === "calibrando");
-    // Actualiza el log completo
-    logCalibracionBascula += logLinea;
-    document.getElementById('calib-log-basc').value = logCalibracionBascula;
-    document.getElementById('calib-log-basc').scrollTop = document.getElementById('calib-log-basc').scrollHeight;
-  }
-  // ...el resto de tus topics existentes...
-});
+
+    client.on('message', (topic, message) => {
+      if (topic === 'evaporador/bascula/calibracion/estatus') {
+        const logArea = document.getElementById('calib-log-basc');
+        const resultadoSpan = document.getElementById('bascula-calib-resultado');
+        const estadoSpan = document.getElementById('bascula-calib-estado');
+        let texto = message.toString();
+        let logLinea = `[${new Date().toLocaleTimeString()}] ← `;
+
+        try {
+          const data = JSON.parse(texto);
+          const estatus = data.status ?? "-";
+          const calibrada = data.calibrada === true ? "Sí" : (data.calibrada === false ? "No" : "-");
+          const paso = data.paso ?? "-";
+          const terminalLog = data.terminal_log ?? "";
+
+          // Campos opcionales solo se muestran si existen
+          const campos = {
+            "RAW antes tara": data.raw_antes_tara,
+            "RAW después tara": data.raw_despues_tara,
+            "Lectura sin peso": data.lectura_despues_tara,
+            "RAW con peso": data.raw_con_peso,
+            "Lectura con peso": data.lectura_con_peso,
+            "Diferencia RAW": data.diferencia_raw,
+            "Factor calculado": data.factor_calculado,
+            "Error porcentaje": data.error_porcentaje,
+            "Peso verificación": data.peso_verificacion,
+            "Peso necesario": data.peso_necesario,
+            "Mensaje": data.mensaje
+          };
+
+          let textoResultado = terminalLog ? terminalLog + "\n" : "";
+          textoResultado += `Paso: ${paso}\n`;
+
+          for (const [label, value] of Object.entries(campos)) {
+            if (value !== undefined) textoResultado += `${label}: ${value}\n`;
+          }
+
+          textoResultado += `Calibrada: ${calibrada}`;
+
+          estadoSpan.innerText = estatus;
+          resultadoSpan.innerText = textoResultado;
+
+          logLinea += textoResultado + "\n";
+
+        } catch (e) {
+          estadoSpan.innerText = "Diagnóstico recibido";
+          resultadoSpan.innerText = texto;
+          logLinea += texto + "\n";
+        }
+
+        logCalibracionBascula += logLinea;
+        logArea.value = logCalibracionBascula;
+        logArea.scrollTop = logArea.scrollHeight;
+        document.getElementById('bascula-calib-btn').disabled = false;
+      }
+    });
+  </script>
   </script>
 </body>
 </html>
