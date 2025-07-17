@@ -77,6 +77,7 @@
   <div class="tab">
     <button class="tablinks active" onclick="openTab(event, 'experimento')">Experimento</button>
     <button class="tablinks" onclick="openTab(event, 'configuracion')">Configuración</button>
+    <button class="tablinks" onclick="openTab(event, 'archivo')">Archivo</button>
   </div>
 
   <div id="experimento" class="tabcontent active">
@@ -180,6 +181,40 @@
   <!-- AGREGA AQUÍ LA SIGUIENTE LÍNEA -->
   <textarea id="calib-log-basc" rows="12" style="width:100%;" readonly placeholder="Resultados de calibración..."></textarea>
 </div>
+  </div>
+
+  <div id="archivo" class="tabcontent">
+    <div id="grabacion-status" class="sensor">
+      <div class="sensor-title">Estado de Grabación:</div>
+      <div>
+        <span id="grabacion-icon" style="font-size: 24px;">🔴</span>
+        <span id="grabacion-message">No grabando</span>
+      </div>
+      <div id="grabacion-detalles" style="margin-top: 10px; font-size: 14px;">
+        <div><b>Archivo actual:</b> <span id="archivo-actual">-</span></div>
+        <div><b>Experimento actual:</b> <span id="experimento-actual">-</span></div>
+        <div><b>SD Card:</b> <span id="sd-status">-</span></div>
+        <div><b>Espacio libre:</b> <span id="espacio-libre">-</span> MB</div>
+        <div><b>Espacio usado:</b> <span id="espacio-usado">-</span> MB</div>
+        <div><b>Tamaño total:</b> <span id="tamano-total">-</span> MB</div>
+      </div>
+    </div>
+
+    <div id="control-grabacion" class="sensor">
+      <div class="sensor-title">Control de Grabación:</div>
+      <div class="control">
+        <label for="nombre-experimento">Nombre del experimento:</label>
+        <input id="nombre-experimento" type="text" value="experimento_bascula_01" style="width: 200px; margin-bottom: 10px;" />
+        <br>
+        <button id="iniciar-grabacion-btn" onclick="iniciarGrabacion()">Iniciar Grabación</button>
+        <button id="detener-grabacion-btn" onclick="detenerGrabacion()" disabled>Detener Grabación</button>
+        <button id="consultar-estado-btn" onclick="consultarEstadoGrabacion()">Consultar Estado</button>
+      </div>
+      <div id="grabacion-resultado" style="margin-top: 10px;">
+        <b>Último resultado:</b>
+        <pre id="grabacion-respuesta" style="font-size: 14px; background: #f7f7f7; padding: 8px; border-radius: 4px;"></pre>
+      </div>
+    </div>
   </div>
   <script>
     function openTab(evt, tabName) {
@@ -337,9 +372,13 @@
         'evaporador/gps/latitud',
         'evaporador/gps/longitud',
         'evaporador/bascula/calibracion/estatus',
-        'evaporador/bascula/diagnostico/resultado'
+        'evaporador/bascula/diagnostico/resultado',
+        'evaporador/bascula/grabacion'
       ];
       topics.forEach(topic => client.subscribe(topic));
+      
+      // Consultar estado inicial de grabación después de conectar
+      setTimeout(() => consultarEstadoGrabacion(), 2000);
     });
 
     client.on('close', () => {
@@ -733,8 +772,104 @@ client.subscribe && client.subscribe('evaporador/bascula/calibracion/estatus');
         logArea.scrollTop = logArea.scrollHeight;
         document.getElementById('bascula-calib-btn').disabled = false;
       }
+
+      // Manejo del topic de grabación
+      if (topic === 'evaporador/bascula/grabacion') {
+        const respuestaSpan = document.getElementById('grabacion-respuesta');
+        let texto = message.toString();
+        
+        try {
+          const data = JSON.parse(texto);
+          
+          // Actualizar la respuesta mostrada
+          respuestaSpan.innerText = JSON.stringify(data, null, 2);
+          
+          // Si es una respuesta de estado
+          if (data.hasOwnProperty('grabando')) {
+            actualizarEstadoGrabacion(data);
+          }
+          
+          // Si es una respuesta de inicio de grabación
+          if (data.hasOwnProperty('grabacion_iniciada')) {
+            const mensaje = data.grabacion_iniciada ? 
+              `Grabación iniciada: ${data.experimento}\nArchivo: ${data.archivo}` :
+              `Error al iniciar grabación`;
+            
+            if (data.grabacion_iniciada) {
+              // Consultar estado después de iniciar para actualizar la UI
+              setTimeout(() => consultarEstadoGrabacion(), 1000);
+            }
+          }
+          
+        } catch (e) {
+          respuestaSpan.innerText = texto;
+        }
+      }
     });
-  </script>
+
+    // ------ Funciones para manejo de grabación ------
+    function actualizarEstadoGrabacion(data) {
+      const icon = document.getElementById('grabacion-icon');
+      const message = document.getElementById('grabacion-message');
+      const iniciarBtn = document.getElementById('iniciar-grabacion-btn');
+      const detenerBtn = document.getElementById('detener-grabacion-btn');
+      
+      // Actualizar estado visual
+      if (data.grabando) {
+        icon.textContent = '🟢';
+        message.textContent = 'Grabando';
+        iniciarBtn.disabled = true;
+        detenerBtn.disabled = false;
+      } else {
+        icon.textContent = '🔴';
+        message.textContent = 'No grabando';
+        iniciarBtn.disabled = false;
+        detenerBtn.disabled = true;
+      }
+      
+      // Actualizar detalles
+      document.getElementById('archivo-actual').textContent = data.archivo_actual || '-';
+      document.getElementById('experimento-actual').textContent = data.experimento_actual || '-';
+      document.getElementById('sd-status').textContent = data.sd_activa ? 'Activa' : 'Inactiva';
+      document.getElementById('espacio-libre').textContent = data.espacio_libre_mb || '-';
+      document.getElementById('espacio-usado').textContent = data.espacio_usado_mb || '-';
+      document.getElementById('tamano-total').textContent = data.tamano_total_mb || '-';
+    }
+
+    function iniciarGrabacion() {
+      const nombreExperimento = document.getElementById('nombre-experimento').value.trim();
+      if (!nombreExperimento) {
+        alert('Por favor ingrese un nombre para el experimento');
+        return;
+      }
+      
+      const comando = `INICIAR:${nombreExperimento}`;
+      client.publish('evaporador/bascula/grabacion', comando);
+      
+      // Deshabilitar botón temporalmente
+      document.getElementById('iniciar-grabacion-btn').disabled = true;
+      setTimeout(() => {
+        if (!document.getElementById('detener-grabacion-btn').disabled) {
+          document.getElementById('iniciar-grabacion-btn').disabled = false;
+        }
+      }, 3000);
+    }
+
+    function detenerGrabacion() {
+      client.publish('evaporador/bascula/grabacion', 'DETENER');
+      
+      // Deshabilitar botón temporalmente
+      document.getElementById('detener-grabacion-btn').disabled = true;
+      setTimeout(() => {
+        if (document.getElementById('iniciar-grabacion-btn').disabled) {
+          document.getElementById('detener-grabacion-btn').disabled = false;
+        }
+      }, 3000);
+    }
+
+    function consultarEstadoGrabacion() {
+      client.publish('evaporador/bascula/grabacion', 'ESTADO');
+    }
   </script>
 </body>
 </html>
