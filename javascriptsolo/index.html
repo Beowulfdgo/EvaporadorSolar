@@ -373,7 +373,8 @@
         'evaporador/gps/longitud',
         'evaporador/bascula/calibracion/estatus',
         'evaporador/bascula/diagnostico/resultado',
-        'evaporador/bascula/grabacion'
+        'evaporador/bascula/grabacion',
+        'evaporador/bascula/grabacion/resultado'
       ];
       topics.forEach(topic => client.subscribe(topic));
       
@@ -774,7 +775,7 @@ client.subscribe && client.subscribe('evaporador/bascula/calibracion/estatus');
       }
 
       // Manejo del topic de grabación
-      if (topic === 'evaporador/bascula/grabacion') {
+      if (topic === 'evaporador/bascula/grabacion' || topic === 'evaporador/bascula/grabacion/resultado') {
         const respuestaSpan = document.getElementById('grabacion-respuesta');
         let texto = message.toString();
         
@@ -784,7 +785,7 @@ client.subscribe && client.subscribe('evaporador/bascula/calibracion/estatus');
           // Actualizar la respuesta mostrada
           respuestaSpan.innerText = JSON.stringify(data, null, 2);
           
-          // Si es una respuesta de estado
+          // Si es una respuesta de estado (puede venir de cualquiera de los dos topics)
           if (data.hasOwnProperty('grabando')) {
             actualizarEstadoGrabacion(data);
           }
